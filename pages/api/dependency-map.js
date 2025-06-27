@@ -17,8 +17,9 @@ export default async function handler(req, res) {
     const [owner, repo] = repoId.split('/');
     
     // Check if we have code data for this repository
+    let collection;
     try {
-      const collection = await getCollection(repoId);
+      collection = await getCollection(repoId);
       if (!collection.data || collection.data.length === 0) {
         return res.status(200).json({
           nodes: [],
@@ -35,11 +36,24 @@ export default async function handler(req, res) {
       });
     }
     
-    // Generate a demo response since we may not have all files
-    // In a real implementation, this would analyze actual imports across files
-    const demoResponse = generateComprehensiveDemoMap();
+    console.log(`Analyzing dependencies for ${repoId}...`);
     
-    return res.status(200).json(demoResponse);
+    // Get all files from the repository
+    const files = await getAllFiles(owner, repo);
+    console.log(`Found ${files.length} files to analyze`);
+    
+    if (files.length === 0) {
+      return res.status(200).json({
+        nodes: [],
+        links: [],
+        message: "No files found in the repository."
+      });
+    }
+    
+    // Analyze dependencies by reading file contents
+    const dependencyMap = await analyzeDependencies(files, owner, repo);
+    
+    return res.status(200).json(dependencyMap);
   } catch (error) {
     console.error('Error analyzing code dependencies:', error);
     
@@ -51,199 +65,389 @@ export default async function handler(req, res) {
 }
 
 /**
- * Generate a comprehensive demo dependency map
+ * Analyze dependencies between files in the repository
+ * @param {Array} files - List of files from GitHub API
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
  * @returns {Object} Dependency map with nodes and links
  */
-function generateComprehensiveDemoMap() {
-  const nodes = [
-    // Pages
-    { id: 'pages/index.js', type: 'page', weight: 8 },
-    { id: 'pages/_app.js', type: 'page', weight: 5 },
-    
-    // API routes
-    { id: 'pages/api/chat.js', type: 'api', weight: 7 },
-    { id: 'pages/api/process-repo.js', type: 'api', weight: 7 },
-    { id: 'pages/api/file-structure.js', type: 'api', weight: 6 },
-    { id: 'pages/api/generate-docs.js', type: 'api', weight: 8 },
-    { id: 'pages/api/push-to-github.js', type: 'api', weight: 6 },
-    { id: 'pages/api/dependency-map.js', type: 'api', weight: 5 },
-    { id: 'pages/api/code-health.js', type: 'api', weight: 6 },
-    { id: 'pages/api/api-explorer.js', type: 'api', weight: 5 },
-    
-    // Components
-    { id: 'components/Layout.jsx', type: 'component', weight: 5 },
-    { id: 'components/RepositoryInput.jsx', type: 'component', weight: 6 },
-    { id: 'components/ChatInterface.jsx', type: 'component', weight: 9 },
-    { id: 'components/FileStructure.jsx', type: 'component', weight: 7 },
-    { id: 'components/Documentation.jsx', type: 'component', weight: 7 },
-    { id: 'components/CodeViewer.jsx', type: 'component', weight: 5 },
-    { id: 'components/LoadingState.jsx', type: 'component', weight: 4 },
-    { id: 'components/ProgressBar.jsx', type: 'component', weight: 4 },
-    { id: 'components/DependencyMap.jsx', type: 'component', weight: 7 },
-    { id: 'components/CodeHealth.jsx', type: 'component', weight: 6 },
-    { id: 'components/ApiExplorer.jsx', type: 'component', weight: 6 },
-    { id: 'components/CodePushComponent.jsx', type: 'component', weight: 5 },
-    
-    // Libraries
-    { id: 'lib/github.js', type: 'utility', weight: 8 },
-    { id: 'lib/embeddings.js', type: 'utility', weight: 7 },
-    { id: 'lib/chunker.js', type: 'utility', weight: 6 },
-    { id: 'lib/chromadb.js', type: 'utility', weight: 7 },
-    { id: 'lib/groq.js', type: 'utility', weight: 7 },
-    { id: 'lib/utils.js', type: 'utility', weight: 5 },
-    { id: 'lib/githubPush.js', type: 'utility', weight: 5 },
-    { id: 'lib/toast.js', type: 'utility', weight: 3 },
-    
-    // Config files
-    { id: 'next.config.js', type: 'config', weight: 3 },
-    { id: 'tailwind.config.js', type: 'config', weight: 3 },
-  ];
+async function analyzeDependencies(files, owner, repo) {
+  const nodes = [];
+  const links = [];
+  const fileContents = new Map();
   
-  const links = [
-    // Index page dependencies
-    { source: 'pages/index.js', target: 'components/Layout.jsx' },
-    { source: 'pages/index.js', target: 'components/RepositoryInput.jsx' },
-    { source: 'pages/index.js', target: 'components/ChatInterface.jsx' },
-    { source: 'pages/index.js', target: 'components/FileStructure.jsx' },
-    { source: 'pages/index.js', target: 'components/Documentation.jsx' },
-    { source: 'pages/index.js', target: 'components/LoadingState.jsx' },
-    { source: 'pages/index.js', target: 'components/DependencyMap.jsx' },
-    { source: 'pages/index.js', target: 'components/CodeHealth.jsx' },
-    { source: 'pages/index.js', target: 'components/ApiExplorer.jsx' },
-    
-    // Component dependencies
-    { source: 'components/Layout.jsx', target: 'components/LoadingState.jsx' },
-    { source: 'components/ChatInterface.jsx', target: 'components/CodePushComponent.jsx' },
-    { source: 'components/FileStructure.jsx', target: 'lib/github.js' },
-    { source: 'components/Documentation.jsx', target: 'lib/github.js' },
-    { source: 'components/DependencyMap.jsx', target: 'lib/github.js' },
-    { source: 'components/CodeHealth.jsx', target: 'lib/github.js' },
-    { source: 'components/RepositoryInput.jsx', target: 'lib/utils.js' },
-    { source: 'components/RepositoryInput.jsx', target: 'components/ProgressBar.jsx' },
-    { source: 'components/CodePushComponent.jsx', target: 'lib/githubPush.js' },
-    
-    // API dependencies
-    { source: 'pages/api/chat.js', target: 'lib/embeddings.js' },
-    { source: 'pages/api/chat.js', target: 'lib/chromadb.js' },
-    { source: 'pages/api/chat.js', target: 'lib/groq.js' },
-    { source: 'pages/api/chat.js', target: 'lib/github.js' },
-    
-    { source: 'pages/api/process-repo.js', target: 'lib/github.js' },
-    { source: 'pages/api/process-repo.js', target: 'lib/chunker.js' },
-    { source: 'pages/api/process-repo.js', target: 'lib/embeddings.js' },
-    { source: 'pages/api/process-repo.js', target: 'lib/chromadb.js' },
-    { source: 'pages/api/process-repo.js', target: 'lib/utils.js' },
-    
-    { source: 'pages/api/file-structure.js', target: 'lib/github.js' },
-    
-    { source: 'pages/api/generate-docs.js', target: 'lib/github.js' },
-    { source: 'pages/api/generate-docs.js', target: 'lib/embeddings.js' },
-    { source: 'pages/api/generate-docs.js', target: 'lib/chromadb.js' },
-    { source: 'pages/api/generate-docs.js', target: 'lib/utils.js' },
-    { source: 'pages/api/generate-docs.js', target: 'lib/groq.js' },
-    
-    { source: 'pages/api/push-to-github.js', target: 'lib/githubPush.js' },
-    
-    { source: 'pages/api/dependency-map.js', target: 'lib/github.js' },
-    { source: 'pages/api/dependency-map.js', target: 'lib/chromadb.js' },
-    { source: 'pages/api/dependency-map.js', target: 'lib/embeddings.js' },
-    
-    { source: 'pages/api/code-health.js', target: 'lib/github.js' },
-    { source: 'pages/api/code-health.js', target: 'lib/chromadb.js' },
-    { source: 'pages/api/code-health.js', target: 'lib/embeddings.js' },
-    
-    { source: 'pages/api/api-explorer.js', target: 'lib/github.js' },
-    { source: 'pages/api/api-explorer.js', target: 'lib/chromadb.js' },
-    { source: 'pages/api/api-explorer.js', target: 'lib/embeddings.js' },
-    
-    // Library interrelations
-    { source: 'lib/chromadb.js', target: 'lib/embeddings.js' },
-    { source: 'lib/github.js', target: 'lib/utils.js' },
-    { source: 'lib/chunker.js', target: 'lib/utils.js' },
-    
-    // App dependencies
-    { source: 'pages/_app.js', target: 'lib/toast.js' },
-  ];
+  // Limit analysis to reasonable number of files to avoid API limits
+  const filesToAnalyze = files.slice(0, 50);
   
-  // Create a more complex visualization with calculated coordinates
-  const width = 800;
-  const height = 600;
-  const centerX = width / 2;
-  const centerY = height / 2;
+  console.log(`Analyzing ${filesToAnalyze.length} files for dependencies...`);
   
-  // Organize nodes by type
-  const nodesByType = {
-    page: [],
-    api: [],
-    component: [],
-    utility: [],
-    config: []
+  // Read file contents and create nodes
+  for (const file of filesToAnalyze) {
+    try {
+      const content = await getFileContent(file.downloadUrl);
+      if (content) {
+        fileContents.set(file.path, content);
+        
+        // Create node for this file
+        const node = {
+          id: file.path,
+          type: getFileType(file.path),
+          weight: calculateFileWeight(content, file.path),
+          size: content.length,
+          language: getLanguageFromPath(file.path)
+        };
+        
+        nodes.push(node);
+      }
+    } catch (error) {
+      console.error(`Error reading file ${file.path}:`, error);
+      // Still create a node even if we can't read the file
+      nodes.push({
+        id: file.path,
+        type: getFileType(file.path),
+        weight: 1,
+        size: 0,
+        language: getLanguageFromPath(file.path)
+      });
+    }
+  }
+  
+  console.log(`Created ${nodes.length} nodes`);
+  
+  // Analyze dependencies between files
+  for (const [filePath, content] of fileContents.entries()) {
+    try {
+      const dependencies = extractDependencies(content, filePath, fileContents);
+      
+      dependencies.forEach(dep => {
+        // Find if the dependency exists in our nodes
+        const targetNode = nodes.find(node => 
+          node.id === dep || 
+          node.id.endsWith(dep) ||
+          dep.endsWith(node.id.split('/').pop()) ||
+          isRelatedPath(node.id, dep, filePath)
+        );
+        
+        if (targetNode && targetNode.id !== filePath) {
+          // Check if link already exists
+          const existingLink = links.find(link => 
+            link.source === filePath && link.target === targetNode.id
+          );
+          
+          if (!existingLink) {
+            links.push({
+              source: filePath,
+              target: targetNode.id,
+              type: getDependencyType(content, dep)
+            });
+          }
+        }
+      });
+    } catch (error) {
+      console.error(`Error analyzing dependencies for ${filePath}:`, error);
+    }
+  }
+  
+  console.log(`Created ${links.length} dependency links`);
+  
+  // Filter out isolated nodes (nodes with no connections) if there are too many
+  let filteredNodes = nodes;
+  if (nodes.length > 30) {
+    const connectedNodeIds = new Set();
+    links.forEach(link => {
+      connectedNodeIds.add(link.source);
+      connectedNodeIds.add(link.target);
+    });
+    
+    filteredNodes = nodes.filter(node => connectedNodeIds.has(node.id));
+    
+    // Keep some important isolated nodes
+    const isolatedImportantNodes = nodes
+      .filter(node => !connectedNodeIds.has(node.id))
+      .filter(node => 
+        node.type === 'page' || 
+        node.type === 'api' || 
+        node.weight > 5 ||
+        node.id.includes('index') ||
+        node.id.includes('main') ||
+        node.id.includes('app')
+      )
+      .slice(0, 10);
+    
+    filteredNodes = [...filteredNodes, ...isolatedImportantNodes];
+  }
+  
+  return {
+    nodes: filteredNodes,
+    links: links,
+    metadata: {
+      totalFiles: files.length,
+      analyzedFiles: filesToAnalyze.length,
+      connectedFiles: filteredNodes.length,
+      dependencies: links.length
+    }
   };
+}
+
+/**
+ * Extract dependencies from file content
+ * @param {string} content - File content
+ * @param {string} filePath - Path of the current file
+ * @param {Map} allFiles - Map of all file contents
+ * @returns {Array} List of dependencies
+ */
+function extractDependencies(content, filePath, allFiles) {
+  const dependencies = new Set();
   
-  // Group nodes by type
-  nodes.forEach(node => {
-    if (nodesByType[node.type]) {
-      nodesByType[node.type].push(node);
-    } else {
-      nodesByType.utility.push(node);
+  // Extract import statements
+  const importPatterns = [
+    // ES6 imports
+    /import\s+(?:{[^}]*}|\*\s+as\s+\w+|\w+)?\s*from\s+['"`]([^'"`]+)['"`]/g,
+    // CommonJS requires
+    /require\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g,
+    // Dynamic imports
+    /import\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g,
+  ];
+  
+  importPatterns.forEach(pattern => {
+    let match;
+    while ((match = pattern.exec(content)) !== null) {
+      const importPath = match[1];
+      
+      // Skip external packages (no relative paths)
+      if (!importPath.startsWith('.') && !importPath.startsWith('/')) {
+        continue;
+      }
+      
+      const resolvedPath = resolveImportPath(importPath, filePath, allFiles);
+      if (resolvedPath) {
+        dependencies.add(resolvedPath);
+      }
     }
   });
   
-  // Calculate positions for each node type
-  // Pages at top, APIs at right, components at bottom, utilities at left
-  const getAngle = (index, total, startAngle, endAngle) => {
-    const range = endAngle - startAngle;
-    return startAngle + (range * index / total);
+  // Extract other file references (like Next.js pages)
+  if (content.includes('router.push') || content.includes('href=')) {
+    const routeMatches = content.match(/['"`]\/[^'"`]*['"`]/g);
+    if (routeMatches) {
+      routeMatches.forEach(route => {
+        const cleanRoute = route.replace(/['"`]/g, '');
+        if (cleanRoute.startsWith('/api/')) {
+          const apiPath = `pages${cleanRoute}.js`;
+          dependencies.add(apiPath);
+        } else if (cleanRoute !== '/' && !cleanRoute.includes('http')) {
+          const pagePath = `pages${cleanRoute === '/' ? '/index' : cleanRoute}.js`;
+          dependencies.add(pagePath);
+        }
+      });
+    }
+  }
+  
+  // Extract component usage in JSX
+  if (filePath.endsWith('.jsx') || filePath.endsWith('.tsx') || content.includes('React')) {
+    const componentMatches = content.match(/<([A-Z][a-zA-Z0-9]*)/g);
+    if (componentMatches) {
+      componentMatches.forEach(match => {
+        const componentName = match.substring(1);
+        // Look for files that might contain this component
+        for (const [path, _] of allFiles.entries()) {
+          if (path.includes(componentName) || path.endsWith(`${componentName}.jsx`) || path.endsWith(`${componentName}.tsx`)) {
+            dependencies.add(path);
+          }
+        }
+      });
+    }
+  }
+  
+  return Array.from(dependencies);
+}
+
+/**
+ * Resolve import path to actual file path
+ * @param {string} importPath - Import path from code
+ * @param {string} currentFile - Current file path
+ * @param {Map} allFiles - Map of all files
+ * @returns {string|null} Resolved file path
+ */
+function resolveImportPath(importPath, currentFile, allFiles) {
+  // Handle relative imports
+  if (importPath.startsWith('./') || importPath.startsWith('../')) {
+    const currentDir = currentFile.substring(0, currentFile.lastIndexOf('/'));
+    const resolvedPath = resolvePath(currentDir, importPath);
+    
+    // Try different extensions
+    const extensions = ['', '.js', '.jsx', '.ts', '.tsx', '.json'];
+    for (const ext of extensions) {
+      const fullPath = resolvedPath + ext;
+      if (allFiles.has(fullPath)) {
+        return fullPath;
+      }
+    }
+    
+    // Try index files
+    for (const ext of ['.js', '.jsx', '.ts', '.tsx']) {
+      const indexPath = resolvedPath + '/index' + ext;
+      if (allFiles.has(indexPath)) {
+        return indexPath;
+      }
+    }
+  }
+  
+  // Handle absolute imports (from project root)
+  if (importPath.startsWith('/')) {
+    const possiblePaths = [importPath.substring(1)];
+    const extensions = ['', '.js', '.jsx', '.ts', '.tsx', '.json'];
+    
+    for (const path of possiblePaths) {
+      for (const ext of extensions) {
+        const fullPath = path + ext;
+        if (allFiles.has(fullPath)) {
+          return fullPath;
+        }
+      }
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Resolve relative path
+ * @param {string} basePath - Base directory path
+ * @param {string} relativePath - Relative path
+ * @returns {string} Resolved path
+ */
+function resolvePath(basePath, relativePath) {
+  const baseSegments = basePath.split('/').filter(Boolean);
+  const relativeSegments = relativePath.split('/').filter(Boolean);
+  
+  const resultSegments = [...baseSegments];
+  
+  for (const segment of relativeSegments) {
+    if (segment === '..') {
+      resultSegments.pop();
+    } else if (segment !== '.') {
+      resultSegments.push(segment);
+    }
+  }
+  
+  return resultSegments.join('/');
+}
+
+/**
+ * Check if two paths are related
+ * @param {string} nodePath - Node file path
+ * @param {string} depPath - Dependency path
+ * @param {string} currentPath - Current file path
+ * @returns {boolean} Whether paths are related
+ */
+function isRelatedPath(nodePath, depPath, currentPath) {
+  // Check if the dependency path matches the node path pattern
+  const nodeBaseName = nodePath.split('/').pop().split('.')[0];
+  const depBaseName = depPath.split('/').pop().split('.')[0];
+  
+  return nodeBaseName === depBaseName || 
+         nodePath.includes(depBaseName) || 
+         depPath.includes(nodeBaseName);
+}
+
+/**
+ * Get file type based on path
+ * @param {string} filePath - File path
+ * @returns {string} File type
+ */
+function getFileType(filePath) {
+  if (filePath.startsWith('pages/api/')) return 'api';
+  if (filePath.startsWith('pages/')) return 'page';
+  if (filePath.startsWith('components/')) return 'component';
+  if (filePath.startsWith('lib/')) return 'utility';
+  if (filePath.startsWith('styles/')) return 'style';
+  if (filePath.includes('config') || filePath.endsWith('.config.js')) return 'config';
+  if (filePath.includes('test') || filePath.includes('spec')) return 'test';
+  if (filePath.endsWith('.md')) return 'documentation';
+  
+  return 'file';
+}
+
+/**
+ * Calculate file weight based on content and importance
+ * @param {string} content - File content
+ * @param {string} filePath - File path
+ * @returns {number} Weight score
+ */
+function calculateFileWeight(content, filePath) {
+  let weight = 1;
+  
+  // Base weight by file type
+  if (filePath.includes('index')) weight += 3;
+  if (filePath.includes('main')) weight += 3;
+  if (filePath.includes('app')) weight += 2;
+  if (filePath.startsWith('pages/')) weight += 2;
+  if (filePath.startsWith('pages/api/')) weight += 1;
+  if (filePath.startsWith('components/')) weight += 1;
+  
+  // Weight by content complexity
+  const lines = content.split('\n').length;
+  if (lines > 500) weight += 3;
+  else if (lines > 200) weight += 2;
+  else if (lines > 100) weight += 1;
+  
+  // Weight by import/export count
+  const importCount = (content.match(/import\s+/g) || []).length;
+  const exportCount = (content.match(/export\s+/g) || []).length;
+  weight += Math.min(Math.floor((importCount + exportCount) / 3), 3);
+  
+  // Weight by function/class count
+  const functionCount = (content.match(/function\s+\w+|const\s+\w+\s*=\s*\(/g) || []).length;
+  const classCount = (content.match(/class\s+\w+/g) || []).length;
+  weight += Math.min(Math.floor((functionCount + classCount) / 2), 2);
+  
+  return Math.min(weight, 10); // Cap at 10
+}
+
+/**
+ * Get programming language from file path
+ * @param {string} filePath - File path
+ * @returns {string} Language identifier
+ */
+function getLanguageFromPath(filePath) {
+  const extension = filePath.split('.').pop().toLowerCase();
+  
+  const languageMap = {
+    'js': 'javascript',
+    'jsx': 'javascript',
+    'ts': 'typescript',
+    'tsx': 'typescript',
+    'py': 'python',
+    'java': 'java',
+    'go': 'go',
+    'rs': 'rust',
+    'c': 'c',
+    'cpp': 'cpp',
+    'css': 'css',
+    'html': 'html',
+    'json': 'json',
+    'md': 'markdown'
   };
   
-  // Position page nodes at the top
-  nodesByType.page.forEach((node, i) => {
-    const angle = getAngle(i, nodesByType.page.length, Math.PI * 1.75, Math.PI * 2.25);
-    const radius = 200;
-    node.x = centerX + Math.cos(angle) * radius;
-    node.y = centerY + Math.sin(angle) * radius;
-    node.color = '#3B82F6'; // blue
-  });
-  
-  // Position API nodes on the right
-  nodesByType.api.forEach((node, i) => {
-    const angle = getAngle(i, nodesByType.api.length, Math.PI * 0.25, Math.PI * 0.75);
-    const radius = 220;
-    node.x = centerX + Math.cos(angle) * radius;
-    node.y = centerY + Math.sin(angle) * radius;
-    node.color = '#10B981'; // green
-  });
-  
-  // Position component nodes at the bottom
-  nodesByType.component.forEach((node, i) => {
-    const angle = getAngle(i, nodesByType.component.length, Math.PI * 0.75, Math.PI * 1.25);
-    const radius = 200;
-    node.x = centerX + Math.cos(angle) * radius;
-    node.y = centerY + Math.sin(angle) * radius;
-    node.color = '#8B5CF6'; // purple
-  });
-  
-  // Position utility nodes on the left
-  nodesByType.utility.forEach((node, i) => {
-    const angle = getAngle(i, nodesByType.utility.length, Math.PI * 1.25, Math.PI * 1.75);
-    const radius = 200;
-    node.x = centerX + Math.cos(angle) * radius;
-    node.y = centerY + Math.sin(angle) * radius;
-    node.color = '#F59E0B'; // amber
-  });
-  
-  // Position config nodes in the center
-  nodesByType.config.forEach((node, i) => {
-    const angle = getAngle(i, nodesByType.config.length, 0, Math.PI * 2);
-    const radius = 70;
-    node.x = centerX + Math.cos(angle) * radius;
-    node.y = centerY + Math.sin(angle) * radius;
-    node.color = '#6B7280'; // gray
-  });
-  
-  return {
-    nodes,
-    links,
-    success: true
-  };
+  return languageMap[extension] || 'text';
+}
+
+/**
+ * Get dependency type
+ * @param {string} content - File content
+ * @param {string} dep - Dependency path
+ * @returns {string} Dependency type
+ */
+function getDependencyType(content, dep) {
+  if (content.includes(`import ${dep}`) || content.includes(`from '${dep}'`)) {
+    return 'import';
+  }
+  if (content.includes(`require('${dep}')`)) {
+    return 'require';
+  }
+  if (content.includes(`<${dep}`)) {
+    return 'component';
+  }
+  return 'reference';
 }
