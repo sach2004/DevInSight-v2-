@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   try {
     const [owner, repo] = repoId.split('/');
     
-    // Check if we have code data for this repository
+    
     let collection;
     try {
       collection = await getCollection(repoId);
@@ -38,7 +38,7 @@ export default async function handler(req, res) {
     
     console.log(`Analyzing dependencies for ${repoId}...`);
     
-    // Get all files from the repository
+    
     const files = await getAllFiles(owner, repo);
     console.log(`Found ${files.length} files to analyze`);
     
@@ -50,7 +50,7 @@ export default async function handler(req, res) {
       });
     }
     
-    // Analyze dependencies by reading file contents
+    
     const dependencyMap = await analyzeDependencies(files, owner, repo);
     
     return res.status(200).json(dependencyMap);
@@ -65,30 +65,30 @@ export default async function handler(req, res) {
 }
 
 /**
- * Analyze dependencies between files in the repository
- * @param {Array} files - List of files from GitHub API
- * @param {string} owner - Repository owner
- * @param {string} repo - Repository name
- * @returns {Object} Dependency map with nodes and links
+
+ * @param {Array} files 
+ * @param {string} owner 
+ * @param {string} repo 
+ * @returns {Object} 
  */
 async function analyzeDependencies(files, owner, repo) {
   const nodes = [];
   const links = [];
   const fileContents = new Map();
   
-  // Limit analysis to reasonable number of files to avoid API limits
+  
   const filesToAnalyze = files.slice(0, 50);
   
   console.log(`Analyzing ${filesToAnalyze.length} files for dependencies...`);
   
-  // Read file contents and create nodes
+ 
   for (const file of filesToAnalyze) {
     try {
       const content = await getFileContent(file.downloadUrl);
       if (content) {
         fileContents.set(file.path, content);
         
-        // Create node for this file
+        
         const node = {
           id: file.path,
           type: getFileType(file.path),
@@ -101,7 +101,7 @@ async function analyzeDependencies(files, owner, repo) {
       }
     } catch (error) {
       console.error(`Error reading file ${file.path}:`, error);
-      // Still create a node even if we can't read the file
+      
       nodes.push({
         id: file.path,
         type: getFileType(file.path),
@@ -114,13 +114,13 @@ async function analyzeDependencies(files, owner, repo) {
   
   console.log(`Created ${nodes.length} nodes`);
   
-  // Analyze dependencies between files
+
   for (const [filePath, content] of fileContents.entries()) {
     try {
       const dependencies = extractDependencies(content, filePath, fileContents);
       
       dependencies.forEach(dep => {
-        // Find if the dependency exists in our nodes
+        
         const targetNode = nodes.find(node => 
           node.id === dep || 
           node.id.endsWith(dep) ||
@@ -129,7 +129,7 @@ async function analyzeDependencies(files, owner, repo) {
         );
         
         if (targetNode && targetNode.id !== filePath) {
-          // Check if link already exists
+          
           const existingLink = links.find(link => 
             link.source === filePath && link.target === targetNode.id
           );
@@ -150,7 +150,7 @@ async function analyzeDependencies(files, owner, repo) {
   
   console.log(`Created ${links.length} dependency links`);
   
-  // Filter out isolated nodes (nodes with no connections) if there are too many
+  
   let filteredNodes = nodes;
   if (nodes.length > 30) {
     const connectedNodeIds = new Set();
@@ -161,7 +161,7 @@ async function analyzeDependencies(files, owner, repo) {
     
     filteredNodes = nodes.filter(node => connectedNodeIds.has(node.id));
     
-    // Keep some important isolated nodes
+    
     const isolatedImportantNodes = nodes
       .filter(node => !connectedNodeIds.has(node.id))
       .filter(node => 
@@ -190,22 +190,21 @@ async function analyzeDependencies(files, owner, repo) {
 }
 
 /**
- * Extract dependencies from file content
- * @param {string} content - File content
- * @param {string} filePath - Path of the current file
- * @param {Map} allFiles - Map of all file contents
- * @returns {Array} List of dependencies
+ * @param {string} content 
+ * @param {string} filePath 
+ * @param {Map} allFiles 
+ * @returns {Array} 
  */
 function extractDependencies(content, filePath, allFiles) {
   const dependencies = new Set();
   
-  // Extract import statements
+  
   const importPatterns = [
-    // ES6 imports
+   
     /import\s+(?:{[^}]*}|\*\s+as\s+\w+|\w+)?\s*from\s+['"`]([^'"`]+)['"`]/g,
-    // CommonJS requires
+    
     /require\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g,
-    // Dynamic imports
+   
     /import\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g,
   ];
   
@@ -214,7 +213,7 @@ function extractDependencies(content, filePath, allFiles) {
     while ((match = pattern.exec(content)) !== null) {
       const importPath = match[1];
       
-      // Skip external packages (no relative paths)
+    
       if (!importPath.startsWith('.') && !importPath.startsWith('/')) {
         continue;
       }
@@ -226,7 +225,6 @@ function extractDependencies(content, filePath, allFiles) {
     }
   });
   
-  // Extract other file references (like Next.js pages)
   if (content.includes('router.push') || content.includes('href=')) {
     const routeMatches = content.match(/['"`]\/[^'"`]*['"`]/g);
     if (routeMatches) {
@@ -243,13 +241,13 @@ function extractDependencies(content, filePath, allFiles) {
     }
   }
   
-  // Extract component usage in JSX
+  
   if (filePath.endsWith('.jsx') || filePath.endsWith('.tsx') || content.includes('React')) {
     const componentMatches = content.match(/<([A-Z][a-zA-Z0-9]*)/g);
     if (componentMatches) {
       componentMatches.forEach(match => {
         const componentName = match.substring(1);
-        // Look for files that might contain this component
+        
         for (const [path, _] of allFiles.entries()) {
           if (path.includes(componentName) || path.endsWith(`${componentName}.jsx`) || path.endsWith(`${componentName}.tsx`)) {
             dependencies.add(path);
@@ -263,19 +261,18 @@ function extractDependencies(content, filePath, allFiles) {
 }
 
 /**
- * Resolve import path to actual file path
- * @param {string} importPath - Import path from code
- * @param {string} currentFile - Current file path
- * @param {Map} allFiles - Map of all files
- * @returns {string|null} Resolved file path
+ * @param {string} importPath 
+ * @param {string} currentFile
+ * @param {Map} allFiles 
+ * @returns {string|null} 
  */
 function resolveImportPath(importPath, currentFile, allFiles) {
-  // Handle relative imports
+  
   if (importPath.startsWith('./') || importPath.startsWith('../')) {
     const currentDir = currentFile.substring(0, currentFile.lastIndexOf('/'));
     const resolvedPath = resolvePath(currentDir, importPath);
     
-    // Try different extensions
+  
     const extensions = ['', '.js', '.jsx', '.ts', '.tsx', '.json'];
     for (const ext of extensions) {
       const fullPath = resolvedPath + ext;
@@ -284,7 +281,7 @@ function resolveImportPath(importPath, currentFile, allFiles) {
       }
     }
     
-    // Try index files
+    
     for (const ext of ['.js', '.jsx', '.ts', '.tsx']) {
       const indexPath = resolvedPath + '/index' + ext;
       if (allFiles.has(indexPath)) {
@@ -293,7 +290,7 @@ function resolveImportPath(importPath, currentFile, allFiles) {
     }
   }
   
-  // Handle absolute imports (from project root)
+
   if (importPath.startsWith('/')) {
     const possiblePaths = [importPath.substring(1)];
     const extensions = ['', '.js', '.jsx', '.ts', '.tsx', '.json'];
@@ -312,10 +309,10 @@ function resolveImportPath(importPath, currentFile, allFiles) {
 }
 
 /**
- * Resolve relative path
- * @param {string} basePath - Base directory path
- * @param {string} relativePath - Relative path
- * @returns {string} Resolved path
+
+ * @param {string} basePath 
+ * @param {string} relativePath 
+ * @returns {string} 
  */
 function resolvePath(basePath, relativePath) {
   const baseSegments = basePath.split('/').filter(Boolean);
@@ -335,14 +332,14 @@ function resolvePath(basePath, relativePath) {
 }
 
 /**
- * Check if two paths are related
- * @param {string} nodePath - Node file path
- * @param {string} depPath - Dependency path
- * @param {string} currentPath - Current file path
- * @returns {boolean} Whether paths are related
+
+ * @param {string} nodePath 
+ * @param {string} depPath 
+ * @param {string} currentPath
+ * @returns {boolean} 
  */
 function isRelatedPath(nodePath, depPath, currentPath) {
-  // Check if the dependency path matches the node path pattern
+ 
   const nodeBaseName = nodePath.split('/').pop().split('.')[0];
   const depBaseName = depPath.split('/').pop().split('.')[0];
   
@@ -352,9 +349,9 @@ function isRelatedPath(nodePath, depPath, currentPath) {
 }
 
 /**
- * Get file type based on path
- * @param {string} filePath - File path
- * @returns {string} File type
+
+ * @param {string} filePath
+ * @returns {string} 
  */
 function getFileType(filePath) {
   if (filePath.startsWith('pages/api/')) return 'api';
@@ -370,15 +367,14 @@ function getFileType(filePath) {
 }
 
 /**
- * Calculate file weight based on content and importance
- * @param {string} content - File content
- * @param {string} filePath - File path
- * @returns {number} Weight score
+ * @param {string} content
+ * @param {string} filePath 
+ * @returns {number} 
  */
 function calculateFileWeight(content, filePath) {
   let weight = 1;
   
-  // Base weight by file type
+ 
   if (filePath.includes('index')) weight += 3;
   if (filePath.includes('main')) weight += 3;
   if (filePath.includes('app')) weight += 2;
@@ -386,29 +382,29 @@ function calculateFileWeight(content, filePath) {
   if (filePath.startsWith('pages/api/')) weight += 1;
   if (filePath.startsWith('components/')) weight += 1;
   
-  // Weight by content complexity
+
   const lines = content.split('\n').length;
   if (lines > 500) weight += 3;
   else if (lines > 200) weight += 2;
   else if (lines > 100) weight += 1;
   
-  // Weight by import/export count
+  
   const importCount = (content.match(/import\s+/g) || []).length;
   const exportCount = (content.match(/export\s+/g) || []).length;
   weight += Math.min(Math.floor((importCount + exportCount) / 3), 3);
   
-  // Weight by function/class count
+  
   const functionCount = (content.match(/function\s+\w+|const\s+\w+\s*=\s*\(/g) || []).length;
   const classCount = (content.match(/class\s+\w+/g) || []).length;
   weight += Math.min(Math.floor((functionCount + classCount) / 2), 2);
   
-  return Math.min(weight, 10); // Cap at 10
+  return Math.min(weight, 10); 
 }
 
 /**
- * Get programming language from file path
- * @param {string} filePath - File path
- * @returns {string} Language identifier
+ 
+ * @param {string} filePath 
+ * @returns {string} 
  */
 function getLanguageFromPath(filePath) {
   const extension = filePath.split('.').pop().toLowerCase();
@@ -434,10 +430,9 @@ function getLanguageFromPath(filePath) {
 }
 
 /**
- * Get dependency type
- * @param {string} content - File content
- * @param {string} dep - Dependency path
- * @returns {string} Dependency type
+ * @param {string} content 
+ * @param {string} dep 
+ * @returns {string} 
  */
 function getDependencyType(content, dep) {
   if (content.includes(`import ${dep}`) || content.includes(`from '${dep}'`)) {

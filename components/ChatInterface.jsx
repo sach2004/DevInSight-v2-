@@ -6,7 +6,7 @@ import CodePushComponent from './CodePushComponent';
 
 export default function ChatInterface({ 
   repositoryInfo,
-  initialPrompt = ''  // Add this prop to accept prompts from other components
+  initialPrompt = ''  
 }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -24,7 +24,7 @@ export default function ChatInterface({
   });
   const messagesEndRef = useRef(null);
   
-  // Set input when initialPrompt prop changes
+  
   useEffect(() => {
     if (initialPrompt && initialPrompt.trim() !== '') {
       setInput(initialPrompt);
@@ -122,9 +122,9 @@ export default function ChatInterface({
   };
 
   const handlePushToGitHub = (code, language) => {
-    // Collect the recent conversation for context
+ 
     const conversationContext = {
-      messages: messages.slice(-10) // Get the last 10 messages for context
+      messages: messages.slice(-10) 
     };
     
     setSelectedCode({ 
@@ -179,32 +179,32 @@ export default function ChatInterface({
   };
   
   const processMarkdown = (text) => {
-    // Process headings
+    
     text = text.replace(/## (.*?)(\n|$)/g, '<h2 class="text-xl font-bold my-3">$1</h2>');
     text = text.replace(/### (.*?)(\n|$)/g, '<h3 class="text-lg font-semibold my-2">$1</h3>');
     
-    // Process lists
+    
     text = text.replace(/^\s*[-*]\s+(.*?)$/gm, '<li class="ml-4">• $1</li>');
     text = text.replace(/^\s*(\d+)\.\s+(.*?)$/gm, '<li class="ml-4">$1. $2</li>');
     
-    // Wrap lists
+   
     text = text.replace(/<li class="ml-4">•([\s\S]*?)(?=<h|<li class="ml-4">\d|$)/g, '<ul class="my-2">$&</ul>');
     text = text.replace(/<li class="ml-4">(\d+)([\s\S]*?)(?=<h|<li class="ml-4">•|$)/g, '<ol class="my-2">$&</ol>');
     
-    // Process inline code
+    
     text = text.replace(/`([^`]+)`/g, '<code class="px-1 py-0.5 bg-gray-100 rounded font-mono text-sm text-red-600">$1</code>');
     
-    // Process bold and italic
+   
     text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
     
-    // Process links
+    
     text = text.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" class="text-blue-600 underline" target="_blank" rel="noopener noreferrer">$1</a>');
     
-    // Process paragraphs
+    
     text = text.replace(/\n\n/g, '</p><p class="my-2">');
     
-    // Ensure all text is wrapped in paragraphs
+   
     if (!text.startsWith('<h') && !text.startsWith('<ul') && !text.startsWith('<ol') && !text.startsWith('<p')) {
       text = `<p class="my-2">${text}</p>`;
     }
@@ -306,11 +306,11 @@ export default function ChatInterface({
     setInput(question);
   };
 
-  // Auto-submit when initialPrompt is provided
+
   useEffect(() => {
-    // Check if we have a non-empty initialPrompt and if it's a fresh prompt
+    
     if (initialPrompt && initialPrompt.trim() !== '' && input === initialPrompt) {
-      // Submit the form automatically after a short delay
+     
       const timer = setTimeout(() => {
         const submitButton = document.querySelector('form button[type="submit"]');
         if (submitButton) {
@@ -402,7 +402,7 @@ export default function ChatInterface({
         </div>
       </div>
       
-      {/* GitHub Push Dialog */}
+   
       {showPushDialog && (
         <CodePushComponent
           code={selectedCode.code}

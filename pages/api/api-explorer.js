@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   try {
     const [owner, repo] = repoId.split('/');
     
-    // Check if we have code data for this repository
+    
     try {
       const collection = await getCollection(repoId);
       if (!collection.data || collection.data.length === 0) {
@@ -34,10 +34,10 @@ export default async function handler(req, res) {
       });
     }
     
-    // Generate embedding for API-related content
+    
     const apiQuery = await generateEmbedding("API endpoint route handler request response");
     
-    // Get chunks related to API endpoints
+    
     const apiChunks = await querySimilarChunks(repoId, apiQuery, 50);
     
     if (!apiChunks || apiChunks.length === 0) {
@@ -48,14 +48,14 @@ export default async function handler(req, res) {
       });
     }
     
-    // Filter chunks to focus on API files (Next.js convention: pages/api/*)
+  
     const apiFileChunks = apiChunks.filter(chunk => 
       chunk.metadata && 
       chunk.metadata.path && 
       (chunk.metadata.path.includes('/api/') || chunk.metadata.path.includes('controller') || chunk.metadata.path.includes('routes'))
     );
     
-    // Group chunks by file
+    
     const fileChunks = {};
     apiFileChunks.forEach(chunk => {
       if (!chunk.metadata || !chunk.metadata.path) return;
@@ -68,20 +68,20 @@ export default async function handler(req, res) {
       fileChunks[path].push(chunk);
     });
     
-    // Extract API endpoints
+    
     const endpoints = [];
     const processedPaths = new Set();
     
-    // Process each API file
+    
     for (const [path, chunks] of Object.entries(fileChunks)) {
-      // Skip already processed paths
+      
       if (processedPaths.has(path)) continue;
       processedPaths.add(path);
       
-      // Combine chunks for full file analysis
+      
       const fileContent = chunks.map(chunk => chunk.content).join('\n\n');
       
-      // Extract endpoint information
+      
       const endpoint = extractEndpointInfo(path, fileContent);
       
       if (endpoint) {
@@ -89,9 +89,9 @@ export default async function handler(req, res) {
       }
     }
     
-    // Handle case when no endpoints are found
+   
     if (endpoints.length === 0) {
-      // Try to find API-like files that might have been missed
+    
       const allFilePaths = Object.keys(collection.data.reduce((acc, item) => {
         if (item.metadata && item.metadata.path) {
           acc[item.metadata.path] = true;
@@ -106,7 +106,7 @@ export default async function handler(req, res) {
         path.includes('handlers')
       );
       
-      // For demonstration purposes, create sample endpoints
+      
       for (const path of potentialApiFiles.slice(0, 3)) {
         const endpoint = createSampleEndpoint(path);
         if (endpoint) {
@@ -115,7 +115,7 @@ export default async function handler(req, res) {
       }
     }
     
-    // Sort endpoints by path
+    
     endpoints.sort((a, b) => a.path.localeCompare(b.path));
     
     return res.status(200).json({
@@ -134,22 +134,22 @@ export default async function handler(req, res) {
 }
 
 /**
- * Extract API endpoint information from file content
- * @param {string} path - File path
- * @param {string} content - File content
- * @returns {Object|null} - Endpoint information or null if not an API endpoint
+
+ * @param {string} path 
+ * @param {string} content 
+ * @returns {Object|null} 
  */
 function extractEndpointInfo(path, content) {
   try {
-    // Extract base information
+   
     const pathParts = path.split('/');
     const fileName = pathParts[pathParts.length - 1].replace(/\.\w+$/, '');
     const endpointId = fileName;
     
-    // Default to POST for API handler functions
+    
     let method = 'POST';
     
-    // Try to determine HTTP method from content
+    
     if (content.includes('req.method === \'GET\'') || content.includes('method: \'GET\'')) {
       method = 'GET';
     } else if (content.includes('req.method === \'PUT\'') || content.includes('method: \'PUT\'')) {
@@ -158,17 +158,17 @@ function extractEndpointInfo(path, content) {
       method = 'DELETE';
     }
     
-    // Extract API path
+    
     let apiPath = `/api/${fileName}`;
     
-    // Check if it's in pages/api structure (Next.js)
+    
     if (path.includes('pages/api/')) {
       const apiPathSegments = path.split('pages/api/')[1].split('.');
-      apiPathSegments.pop(); // Remove file extension
+      apiPathSegments.pop(); 
       apiPath = `/api/${apiPathSegments.join('.')}`;
     }
     
-    // Attempt to extract description
+    
     let description = '';
     const descriptionMatch = content.match(/\/\*\*[\s\S]*?\*\//) || content.match(/\/\/.*API.*endpoint/);
     if (descriptionMatch) {
@@ -180,14 +180,14 @@ function extractEndpointInfo(path, content) {
         .join(' ')
         .replace(/\s+/g, ' ');
     } else {
-      // Generate a basic description based on the endpoint name
+     
       description = `${method} endpoint for ${fileName.replace(/-/g, ' ')} operations`;
     }
     
-    // Extract request parameters
+    
     const requestParams = [];
     
-    // Look for destructuring in parameters
+    
     const destructuringMatch = content.match(/const\s*{([^}]+)}\s*=\s*req\.body/);
     if (destructuringMatch) {
       const paramNames = destructuringMatch[1].split(',').map(p => p.trim());
@@ -208,7 +208,7 @@ function extractEndpointInfo(path, content) {
       });
     }
     
-    // Look for direct req.body access
+  
     const directBodyAccess = content.match(/req\.body\.(\w+)/g);
     if (directBodyAccess) {
       const paramNames = directBodyAccess.map(match => match.replace('req.body.', ''));
@@ -229,7 +229,7 @@ function extractEndpointInfo(path, content) {
       });
     }
     
-    // For GET requests, look for query parameters
+    
     if (method === 'GET') {
       const queryParams = content.match(/req\.query\.(\w+)/g);
       if (queryParams) {
@@ -252,10 +252,10 @@ function extractEndpointInfo(path, content) {
       }
     }
     
-    // Extract response fields
+    
     const responseFields = [];
     
-    // Look for response.json or res.status().json calls
+    
     const jsonResponseMatch = content.match(/res(?:ponse)?\.(?:status\(\d+\)\.)?json\(\s*({[^}]+})/);
     if (jsonResponseMatch) {
       const responseObj = jsonResponseMatch[1];
@@ -275,9 +275,9 @@ function extractEndpointInfo(path, content) {
       });
     }
     
-    // If we couldn't extract response fields, check for other patterns
+    
     if (responseFields.length === 0) {
-      // Look for other return json patterns
+      
       const returnMatch = content.match(/return\s*({[^}]+})/);
       if (returnMatch) {
         const responseObj = returnMatch[1];
@@ -298,7 +298,7 @@ function extractEndpointInfo(path, content) {
       }
     }
     
-    // Generate example request based on request params
+    
     const exampleRequest = {};
     requestParams.forEach(param => {
       switch (param.type) {
@@ -322,7 +322,7 @@ function extractEndpointInfo(path, content) {
       }
     });
     
-    // Generate example response based on response fields
+    
     const exampleResponse = {};
     responseFields.forEach(field => {
       switch (field.type) {
@@ -346,7 +346,7 @@ function extractEndpointInfo(path, content) {
       }
     });
     
-    // Ensure we have at least some response if nothing was detected
+   
     if (Object.keys(exampleResponse).length === 0) {
       exampleResponse.success = true;
       responseFields.push({
@@ -356,7 +356,7 @@ function extractEndpointInfo(path, content) {
       });
     }
     
-    // Try to find related files
+    
     const relatedFiles = [];
     const importMatches = content.match(/(?:import|require)\s+.*?(?:from\s+)?['"]([^'"]+)['"]/g);
     if (importMatches) {
@@ -364,9 +364,9 @@ function extractEndpointInfo(path, content) {
         const match = importStatement.match(/['"]([^'"]+)['"]/);
         if (match) {
           const importPath = match[1];
-          if (!importPath.startsWith('.')) return; // Skip external package imports
+          if (!importPath.startsWith('.')) return; 
           
-          // Convert relative import to absolute path (simplified)
+          
           let absolutePath = importPath;
           if (importPath.startsWith('./')) {
             const dir = path.substring(0, path.lastIndexOf('/'));
@@ -377,7 +377,7 @@ function extractEndpointInfo(path, content) {
             absolutePath = `${parentDir}/${importPath.substring(3)}`;
           }
           
-          // Add common JS/TS extensions if missing
+          
           if (!absolutePath.includes('.')) {
             const extensions = ['.js', '.ts', '.jsx', '.tsx'];
             for (const ext of extensions) {
@@ -390,7 +390,7 @@ function extractEndpointInfo(path, content) {
       });
     }
     
-    // Build the endpoint object
+    
     return {
       id: endpointId,
       path: apiPath,
@@ -414,7 +414,7 @@ function extractEndpointInfo(path, content) {
       exampleRequest: Object.keys(exampleRequest).length > 0 ? exampleRequest : { id: 'example-id' },
       exampleResponse: exampleResponse,
       sourcePath: path,
-      relatedFiles: [...new Set(relatedFiles)] // Remove duplicates
+      relatedFiles: [...new Set(relatedFiles)] 
     };
   } catch (error) {
     console.error(`Error extracting endpoint info from ${path}:`, error);
@@ -423,24 +423,24 @@ function extractEndpointInfo(path, content) {
 }
 
 /**
- * Create a sample endpoint for demonstration
- * @param {string} path - File path
- * @returns {Object} - Sample endpoint
+
+ * @param {string} path 
+ * @returns {Object} 
  */
 function createSampleEndpoint(path) {
   const pathParts = path.split('/');
   const fileName = pathParts[pathParts.length - 1].replace(/\.\w+$/, '');
   const endpointId = fileName;
   
-  // Format a nice API path
+  
   let apiPath = `/api/${fileName}`;
   if (path.includes('pages/api/')) {
     const apiPathSegments = path.split('pages/api/')[1].split('.');
-    apiPathSegments.pop(); // Remove file extension
+    apiPathSegments.pop(); 
     apiPath = `/api/${apiPathSegments.join('.')}`;
   }
   
-  // Generate a method based on common naming conventions
+  
   let method = 'POST';
   if (fileName.startsWith('get') || fileName.includes('list') || fileName.includes('search')) {
     method = 'GET';
@@ -450,7 +450,7 @@ function createSampleEndpoint(path) {
     method = 'DELETE';
   }
   
-  // Generate description based on filename
+  
   const readableName = fileName
     .replace(/([A-Z])/g, ' $1')
     .replace(/-/g, ' ')
@@ -484,13 +484,13 @@ function createSampleEndpoint(path) {
 }
 
 /**
- * Guess parameter type from its usage in code
- * @param {string} paramName - Parameter name
- * @param {string} content - File content
- * @returns {string} - Guessed type
+ 
+ * @param {string} paramName 
+ * @param {string} content
+ * @returns {string} 
  */
 function guessTypeFromUsage(paramName, content) {
-  // Check for type hints in variable names
+  
   if (paramName.includes('id') || paramName.includes('Id')) return 'string';
   if (paramName.includes('name') || paramName.includes('Name')) return 'string';
   if (paramName.includes('email') || paramName.includes('Email')) return 'string';
@@ -500,24 +500,24 @@ function guessTypeFromUsage(paramName, content) {
   if (paramName.includes('list') || paramName.includes('List') || paramName.includes('array') || paramName.includes('Array')) return 'array';
   if (paramName.includes('options') || paramName.includes('Options') || paramName.includes('config') || paramName.includes('Config')) return 'object';
   
-  // Check for type checking in code
+ 
   const typeofCheck = content.match(new RegExp(`typeof\\s+${paramName}\\s*===?\\s*["']([\\w]+)["']`));
   if (typeofCheck) return typeofCheck[1];
   
-  // Check for common operations
+  
   if (content.includes(`${paramName}.map`) || content.includes(`${paramName}.forEach`) || content.includes(`${paramName}.filter`)) return 'array';
   if (content.includes(`${paramName}.length`)) return content.includes(`${paramName}[`) ? 'array' : 'string';
   if (content.includes(`${paramName}.toUpperCase`) || content.includes(`${paramName}.toLowerCase`)) return 'string';
   if (content.includes(`${paramName}.toFixed`) || content.includes(`${paramName} + 1`)) return 'number';
   
-  // Default to string for unknown types
+
   return 'string';
 }
 
 /**
- * Guess type from a value expression
- * @param {string} value - Value expression from code
- * @returns {string} - Guessed type
+ 
+ * @param {string} value 
+ * @returns {string}
  */
 function guessTypeFromValue(value) {
   if (!value) return 'string';
@@ -535,15 +535,15 @@ function guessTypeFromValue(value) {
   if (value.includes('map')) return 'array';
   if (value.includes('filter')) return 'array';
   
-  // Handle variable references
+  
   if (value.match(/^[a-zA-Z_$][a-zA-Z0-9_$]*$/)) {
-    // Common naming conventions
+   
     if (value.includes('count') || value.includes('Count') || value.includes('total') || value.includes('Total')) return 'number';
     if (value.includes('is') || value.includes('has')) return 'boolean';
     if (value.includes('list') || value.includes('List') || value.includes('array') || value.includes('Array')) return 'array';
     if (value.includes('obj') || value.includes('Obj') || value.includes('options') || value.includes('Options')) return 'object';
   }
   
-  // Default to string for unknown types
+  
   return 'string';
 }

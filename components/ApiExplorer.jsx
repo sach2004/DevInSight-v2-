@@ -15,7 +15,7 @@ const ApiExplorer = forwardRef(({
   const [activeEndpoint, setActiveEndpoint] = useState(null);
   const [visualizeFlow, setVisualizeFlow] = useState(false);
   
-  // Expose methods to parent component
+ 
   useImperativeHandle(ref, () => ({
     refreshData: fetchApiData,
     getApiData: () => apiData
@@ -23,7 +23,7 @@ const ApiExplorer = forwardRef(({
 
   useEffect(() => {
     if (repositoryInfo) {
-      // Use cached data if available
+      
       if (isDataLoaded && cachedData) {
         setApiData(cachedData);
       } else {
@@ -58,12 +58,12 @@ const ApiExplorer = forwardRef(({
       const data = await response.json();
       setApiData(data);
       
-      // Set active endpoint to the first one if available
+      
       if (data.endpoints && data.endpoints.length > 0) {
         setActiveEndpoint(data.endpoints[0]);
       }
       
-      // Notify parent component that data is loaded
+      
       if (onDataLoaded) {
         onDataLoaded(data);
       }
@@ -71,14 +71,14 @@ const ApiExplorer = forwardRef(({
       console.error('Error fetching API data:', error);
       setError(error.message);
       
-      // Generate sample data for demonstration
+      
       generateSampleData();
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Generate sample data for demonstration
+  
   const generateSampleData = () => {
     const sampleData = {
       apiRoot: "/api",
@@ -175,12 +175,12 @@ const ApiExplorer = forwardRef(({
     
     setApiData(sampleData);
     
-    // Set active endpoint to the first one
+   
     if (sampleData.endpoints && sampleData.endpoints.length > 0) {
       setActiveEndpoint(sampleData.endpoints[0]);
     }
     
-    // Notify parent component
+    
     if (onDataLoaded) {
       onDataLoaded(sampleData);
     }
@@ -201,12 +201,12 @@ const ApiExplorer = forwardRef(({
     }
   };
 
-  // Toggle flow visualization
+ 
   const toggleFlowVisualization = () => {
     setVisualizeFlow(!visualizeFlow);
   };
 
-  // Generate curl command for endpoint
+ 
   const generateCurlCommand = (endpoint) => {
     if (!endpoint) return '';
     
@@ -217,7 +217,7 @@ const ApiExplorer = forwardRef(({
     return curl;
   };
 
-  // Render loading state
+
   if (isLoading) {
     return (
       <div className="text-center py-8">
@@ -228,7 +228,7 @@ const ApiExplorer = forwardRef(({
     );
   }
 
-  // Render error state
+  
   if (error && !apiData) {
     return (
       <div className="p-6 bg-white rounded-lg shadow-sm">
@@ -244,7 +244,7 @@ const ApiExplorer = forwardRef(({
     );
   }
 
-  // Render no data state
+  
   if (!apiData) {
     return (
       <div className="p-6 bg-white rounded-lg shadow-sm">
@@ -287,7 +287,7 @@ const ApiExplorer = forwardRef(({
       </div>
 
       <div className="flex">
-        {/* API Endpoint List */}
+        
         <div className="w-1/3 border-r border-gray-200 pr-4 overflow-y-auto" style={{ maxHeight: '700px' }}>
           <h3 className="text-sm font-medium text-gray-500 mb-3">API Endpoints</h3>
           <ul className="space-y-2">
@@ -313,7 +313,7 @@ const ApiExplorer = forwardRef(({
           </ul>
         </div>
 
-        {/* API Endpoint Details */}
+       
         <div className="w-2/3 pl-6 overflow-y-auto" style={{ maxHeight: '700px' }}>
           {activeEndpoint ? (
             <div>
@@ -326,7 +326,7 @@ const ApiExplorer = forwardRef(({
               
               <p className="text-gray-700 mb-6">{activeEndpoint.description}</p>
               
-              {/* Source info */}
+             
               <div className="mb-6 bg-gray-50 rounded-lg p-3 text-sm">
                 <div className="flex items-center text-gray-500 mb-2">
                   <Code size={14} className="mr-1" />
@@ -344,9 +344,9 @@ const ApiExplorer = forwardRef(({
                 )}
               </div>
               
-              {/* Request and Response section */}
+             
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                {/* Request parameters */}
+               
                 <div>
                   <h4 className="font-medium mb-2">Request Parameters</h4>
                   <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
@@ -369,7 +369,7 @@ const ApiExplorer = forwardRef(({
                   </div>
                 </div>
                 
-                {/* Response fields */}
+               
                 <div>
                   <h4 className="font-medium mb-2">Response Fields</h4>
                   <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
@@ -390,9 +390,9 @@ const ApiExplorer = forwardRef(({
                 </div>
               </div>
               
-              {/* Example section */}
+             
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                {/* Example request */}
+               
                 <div>
                   <h4 className="font-medium mb-2">Example Request</h4>
                   <SyntaxHighlighter
@@ -404,7 +404,7 @@ const ApiExplorer = forwardRef(({
                   </SyntaxHighlighter>
                 </div>
                 
-                {/* Example response */}
+                
                 <div>
                   <h4 className="font-medium mb-2">Example Response</h4>
                   <SyntaxHighlighter
@@ -417,7 +417,7 @@ const ApiExplorer = forwardRef(({
                 </div>
               </div>
               
-              {/* cURL example */}
+              
               <div className="mb-6">
                 <h4 className="font-medium mb-2">cURL Command</h4>
                 <SyntaxHighlighter
@@ -429,7 +429,7 @@ const ApiExplorer = forwardRef(({
                 </SyntaxHighlighter>
               </div>
               
-              {/* Flow visualization */}
+             
               {visualizeFlow && (
                 <div className="mb-6">
                   <h4 className="font-medium mb-2">Request Flow</h4>
@@ -457,7 +457,7 @@ const ApiExplorer = forwardRef(({
                       </div>
                     </div>
                     
-                    {/* Processing steps */}
+                   
                     <div className="mt-8 pl-[calc(50%+16px)]">
                       <div className="text-xs font-medium text-gray-700 mb-2">Processing Steps:</div>
                       <ol className="space-y-2 text-sm border-l-2 border-gray-300 pl-4">

@@ -6,7 +6,7 @@ export default function CodeHealth({
   onDataLoaded, 
   cachedData, 
   isDataLoaded,
-  onChatRequest  // New prop to handle communication with chat interface
+  onChatRequest  
 }) {
   const [healthData, setHealthData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -18,7 +18,7 @@ export default function CodeHealth({
 
   useEffect(() => {
     if (repositoryInfo) {
-      // Use cached data if available
+    
       if (isDataLoaded && cachedData) {
         setHealthData(cachedData);
       } else {
@@ -53,7 +53,7 @@ export default function CodeHealth({
       const data = await response.json();
       setHealthData(data);
       
-      // Notify parent component that data is loaded
+     
       if (onDataLoaded) {
         onDataLoaded(data);
       }
@@ -61,17 +61,17 @@ export default function CodeHealth({
       console.error('Error analyzing code health:', error);
       setError(error.message);
       
-      // Generate sample data for demonstration
+      
       generateSampleData();
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Helper function to send a prompt to the chat interface
+ 
   const sendToChatbot = (issue) => {
-    // Create a detailed prompt for the chatbot
-    // Using specific language tag for the code block to ensure proper syntax highlighting
+   
+   
     const language = determineLanguageFromPath(issue.location);
     
     const prompt = `I need help fixing an issue in file "${issue.location}": ${issue.title}. 
@@ -82,13 +82,13 @@ Suggested fix: ${issue.suggestion}
 
 Please provide a complete and improved version of this code that fixes the issue.`;
 
-    // Use the onChatRequest callback to send this prompt to the chat tab
+    
     if (onChatRequest) {
       onChatRequest(prompt);
     }
   };
 
-  // Helper function to determine the language from file path
+  
   const determineLanguageFromPath = (path) => {
     if (!path) return 'javascript';
     
@@ -109,7 +109,7 @@ Please provide a complete and improved version of this code that fixes the issue
     if (path.endsWith('.json')) return 'json';
     if (path.endsWith('.md')) return 'markdown';
     
-    // Default to javascript for unknown file extensions
+    
     return 'javascript';
   };
 
@@ -201,7 +201,7 @@ Please provide a complete and improved version of this code that fixes the issue
     
     setHealthData(sampleData);
     
-    // Notify parent component
+ 
     if (onDataLoaded) {
       onDataLoaded(sampleData);
     }
@@ -250,9 +250,8 @@ Please provide a complete and improved version of this code that fixes the issue
     setFixCode(null);
     
     try {
-      // In a real implementation, we would call an API to generate the fix
-      // For demo purposes, we'll use pre-defined fixes
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API delay
+   
+      await new Promise(resolve => setTimeout(resolve, 1500)); 
       
       let fixedCode = '';
       
@@ -284,7 +283,7 @@ Please provide a complete and improved version of this code that fixes the issue
     }
   };
 
-  // Render loading state
+  
   if (isLoading) {
     return (
       <div className="text-center py-8">
@@ -295,7 +294,7 @@ Please provide a complete and improved version of this code that fixes the issue
     );
   }
 
-  // Render error state
+  
   if (error && !healthData) {
     return (
       <div className="p-6 bg-white rounded-lg shadow-sm">
@@ -311,7 +310,7 @@ Please provide a complete and improved version of this code that fixes the issue
     );
   }
 
-  // Render no data state
+ 
   if (!healthData) {
     return (
       <div className="p-6 bg-white rounded-lg shadow-sm">
@@ -340,7 +339,7 @@ Please provide a complete and improved version of this code that fixes the issue
         </button>
       </div>
 
-      {/* Tab navigation */}
+     
       <div className="border-b border-gray-200 mb-6">
         <div className="flex space-x-4">
           <button
@@ -376,11 +375,11 @@ Please provide a complete and improved version of this code that fixes the issue
         </div>
       </div>
 
-      {/* Overview tab */}
+   
       {activeTab === 'overview' && (
         <div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            {/* Overall score */}
+           
             <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
               <h3 className="text-sm font-medium text-gray-500 mb-1">Overall Health Score</h3>
               <div className="flex items-end">
@@ -397,7 +396,7 @@ Please provide a complete and improved version of this code that fixes the issue
               </div>
             </div>
             
-            {/* Issue breakdown */}
+           
             <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
               <h3 className="text-sm font-medium text-gray-500 mb-1">Issues Found</h3>
               <div className="mt-2">
@@ -438,7 +437,7 @@ Please provide a complete and improved version of this code that fixes the issue
               </div>
             </div>
             
-            {/* Test coverage */}
+          
             <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
               <h3 className="text-sm font-medium text-gray-500 mb-1">Test Coverage</h3>
               <div className="flex items-end">
@@ -455,7 +454,7 @@ Please provide a complete and improved version of this code that fixes the issue
             </div>
           </div>
           
-          {/* Category breakdown */}
+         
           <h3 className="text-lg font-medium mb-3">Health Categories</h3>
           <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
             <div className="divide-y divide-gray-200">
@@ -481,7 +480,7 @@ Please provide a complete and improved version of this code that fixes the issue
         </div>
       )}
 
-      {/* Issues tab */}
+    
       {activeTab === 'issues' && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
           {selectedIssue ? (
@@ -548,7 +547,7 @@ Please provide a complete and improved version of this code that fixes the issue
                         </button>
                       )}
                       
-                      {/* New button for sending to chatbot */}
+                     
                       <button
                         onClick={() => sendToChatbot(selectedIssue)}
                         className="flex items-center text-sm px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200 transition-colors"
@@ -629,7 +628,7 @@ Please provide a complete and improved version of this code that fixes the issue
                         {issue.category}
                       </span>
                       
-                      {/* Add chatbot button to list items */}
+                      
                       <button 
                         className="text-xs flex items-center px-2 py-0.5 bg-blue-100 text-blue-800 rounded"
                         onClick={(e) => {
@@ -663,12 +662,12 @@ Please provide a complete and improved version of this code that fixes the issue
         </div>
       )}
 
-      {/* Files tab */}
+      
       {activeTab === 'files' && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
           <div className="divide-y divide-gray-200">
             {healthData.fileScores
-              .sort((a, b) => a.score - b.score) // Sort by score ascending (worst first)
+              .sort((a, b) => a.score - b.score) 
               .map((file, index) => (
                 <div key={index} className="px-6 py-4">
                   <div className="flex items-start">
@@ -710,7 +709,7 @@ Please provide a complete and improved version of this code that fixes the issue
                         View issues
                       </button>
                       
-                      {/* Add a chat button for files */}
+                    
                       <button
                         onClick={() => {
                           const fileIssues = healthData.issues.filter(issue => 
@@ -718,7 +717,7 @@ Please provide a complete and improved version of this code that fixes the issue
                           );
                           
                           if (fileIssues.length > 0) {
-                            // Create a comprehensive prompt about all issues in this file
+                            
                             const language = determineLanguageFromPath(file.file);
                             const issueList = fileIssues.map((issue, idx) => 
                               `Issue ${idx+1}: ${issue.title} - ${issue.description} (${issue.severity} severity)`

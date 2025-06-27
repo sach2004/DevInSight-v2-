@@ -1,7 +1,7 @@
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { ArrowRight, FileCode, Package, HelpCircle, ZoomIn, ZoomOut, RefreshCw } from 'lucide-react';
 
-// Force-directed graph visualization component
+
 const DependencyMap = forwardRef(({ 
   repositoryInfo, 
   onDataLoaded, 
@@ -15,7 +15,7 @@ const DependencyMap = forwardRef(({
   const [selectedNode, setSelectedNode] = useState(null);
   const [simulationRunning, setSimulationRunning] = useState(false);
   
-  // Expose methods to parent component
+  
   useImperativeHandle(ref, () => ({
     refreshData: fetchDependencyData,
     getDependencyData: () => dependencyData
@@ -23,7 +23,7 @@ const DependencyMap = forwardRef(({
 
   useEffect(() => {
     if (repositoryInfo) {
-      // Use cached data if available
+      
       if (isDataLoaded && cachedData) {
         setDependencyData(cachedData);
         initializeSimulation(cachedData);
@@ -33,7 +33,7 @@ const DependencyMap = forwardRef(({
     }
   }, [repositoryInfo, isDataLoaded, cachedData]);
 
-  // Function to fetch dependency data
+  
   const fetchDependencyData = async () => {
     if (isDataLoaded && dependencyData) {
       return;
@@ -60,10 +60,10 @@ const DependencyMap = forwardRef(({
       const data = await response.json();
       setDependencyData(data);
       
-      // Initialize the simulation with the data
+      
       initializeSimulation(data);
       
-      // Notify parent component that data is loaded
+      
       if (onDataLoaded) {
         onDataLoaded(data);
       }
@@ -71,16 +71,16 @@ const DependencyMap = forwardRef(({
       console.error('Error fetching dependency map:', error);
       setError(error.message);
       
-      // Fallback to generating a sample visualization if the API fails
+      
       generateSampleData();
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Generate sample data for fallback visualization if API fails
+ 
   const generateSampleData = () => {
-    // Create a simplified structure based on common Next.js/React patterns
+    
     const sampleData = {
       nodes: [
         { id: 'pages/index.js', type: 'page', weight: 10 },
@@ -115,18 +115,18 @@ const DependencyMap = forwardRef(({
     initializeSimulation(sampleData);
   };
 
-  // Initialize the force-directed graph simulation
+  
   const initializeSimulation = (data) => {
     if (!data || !data.nodes || !data.links || typeof window === 'undefined') {
       return;
     }
     
-    // We'll need to import D3 for a proper implementation
-    // For now, we'll simulate the positions to avoid errors
+   
+  
     const width = 800;
     const height = 600;
     
-    // Calculate positions for nodes in a circle layout
+
     const nodes = data.nodes.map((node, i) => {
       const angle = (i / data.nodes.length) * 2 * Math.PI;
       const radius = 200;
@@ -147,50 +147,50 @@ const DependencyMap = forwardRef(({
     
     setSimulationRunning(true);
     
-    // In a real implementation, we would use D3's force simulation here
+    
   };
   
-  // Get color based on node type
+
   const getNodeColor = (type) => {
     const colors = {
-      page: '#3B82F6', // blue
-      api: '#10B981', // green
-      component: '#8B5CF6', // purple
-      utility: '#F59E0B', // amber
-      default: '#6B7280' // gray
+      page: '#3B82F6', 
+      api: '#10B981', 
+      component: '#8B5CF6', 
+      utility: '#F59E0B', 
+      default: '#6B7280' 
     };
     
     return colors[type] || colors.default;
   };
   
-  // Handle zoom in
+
   const zoomIn = () => {
     setZoomLevel(prev => Math.min(prev + 0.2, 2.5));
   };
   
-  // Handle zoom out
+  
   const zoomOut = () => {
     setZoomLevel(prev => Math.max(prev - 0.2, 0.5));
   };
   
-  // Handle node selection
+ 
   const handleNodeClick = (node) => {
     setSelectedNode(node);
   };
   
-  // Clear selected node
+  
   const clearSelectedNode = () => {
     setSelectedNode(null);
   };
   
-  // Get simplified file name
+  
   const getSimplifiedName = (path) => {
     if (!path) return '';
     const parts = path.split('/');
     return parts[parts.length - 1];
   };
   
-  // File icon based on path
+  
   const getFileIcon = (path, type) => {
     if (type === 'component') return <Package size={16} className="mr-1" />;
     if (type === 'api') return <ArrowRight size={16} className="mr-1" />;
@@ -261,7 +261,7 @@ const DependencyMap = forwardRef(({
       
       <div className="flex h-full">
         <div className="flex-grow relative border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
-          {/* SVG for dependency visualization */}
+         
           <svg 
             width="100%" 
             height="100%" 
@@ -270,9 +270,9 @@ const DependencyMap = forwardRef(({
             className="transition-transform duration-300"
           >
             <g>
-              {/* Draw links first so they appear behind nodes */}
+              
               {dependencyData.links.map((link, i) => {
-                // Find source and target nodes
+                
                 const source = dependencyData.nodes.find(n => n.id === link.source);
                 const target = dependencyData.nodes.find(n => n.id === link.target);
                 
@@ -293,7 +293,7 @@ const DependencyMap = forwardRef(({
                 );
               })}
               
-              {/* Draw nodes on top of links */}
+            
               {dependencyData.nodes.map((node, i) => {
                 const isSelected = selectedNode && selectedNode.id === node.id;
                 const radius = Math.max(5, Math.min(10, node.weight || 5));
@@ -305,7 +305,7 @@ const DependencyMap = forwardRef(({
                     onClick={() => handleNodeClick(node)}
                     style={{ cursor: 'pointer' }}
                   >
-                    {/* Node circle */}
+                   
                     <circle
                       r={isSelected ? radius * 1.5 : radius}
                       fill={node.color}
@@ -314,7 +314,7 @@ const DependencyMap = forwardRef(({
                       className="transition-all duration-200"
                     />
                     
-                    {/* Node label */}
+                   
                     <text
                       dy="0.35em"
                       dx={radius + 5}
@@ -331,7 +331,7 @@ const DependencyMap = forwardRef(({
                 );
               })}
               
-              {/* Arrow marker definition for directed edges */}
+              
               <defs>
                 <marker
                   id="arrowhead"
@@ -349,7 +349,7 @@ const DependencyMap = forwardRef(({
           </svg>
         </div>
         
-        {/* Details panel when a node is selected */}
+       
         {selectedNode && (
           <div className="w-72 ml-4 border border-gray-200 rounded-lg bg-white p-3 overflow-y-auto">
             <div className="flex justify-between items-center mb-2">

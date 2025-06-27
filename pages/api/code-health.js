@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   try {
     const [owner, repo] = repoId.split('/');
     
-    // Check if we have code data for this repository
+  
     let collection;
     try {
       collection = await getCollection(repoId);
@@ -42,26 +42,26 @@ export default async function handler(req, res) {
       });
     }
     
-    // Get all file paths from the collection
+    
     const filePaths = [...new Set(collection.data.map(item => 
       item.metadata && item.metadata.path ? item.metadata.path : ''
     ))].filter(Boolean);
     
-    // Detect codebase type to configure the analysis engine appropriately
+    
     const codebaseType = detectCodebaseType(filePaths);
     console.log('Detected codebase type:', codebaseType);
     
-    // Initialize the code analysis engine with appropriate rules
+    
     const analysisEngine = createCodeAnalysisEngine({
       includeReactRules: codebaseType.hasReact,
       includeJsRules: ['JavaScript', 'TypeScript', 'React'].includes(codebaseType.primaryLanguage),
       includeTodoRules: codebaseType.hasTodo
     });
     
-    // Analyze code quality by retrieving code chunks
+    
     const codeQuery = await generateEmbedding("function class component code quality best practices");
     
-    // Get chunks related to code
+    
     const codeChunks = await querySimilarChunks(repoId, codeQuery, 50);
     
     if (!codeChunks || codeChunks.length === 0) {
@@ -78,7 +78,7 @@ export default async function handler(req, res) {
       });
     }
     
-    // Group chunks by file
+  
     const fileChunks = {};
     codeChunks.forEach(chunk => {
       if (!chunk.metadata || !chunk.metadata.path) return;
@@ -91,23 +91,23 @@ export default async function handler(req, res) {
       fileChunks[path].push(chunk);
     });
     
-    // Store issues found
+    
     const issues = [];
     const fileCounts = {};
     
-    // Process each file's chunks
+   
     for (const [path, chunks] of Object.entries(fileChunks)) {
-      // Combine chunks for full file analysis
+     
       const fileContent = chunks.map(chunk => chunk.content).join('\n\n');
       fileCounts[path] = { issues: 0 };
       
-      // Analyze the file using the code analysis engine
+      
       const fileIssues = analysisEngine.analyzeCode(fileContent, path);
       
-      // Process and add issues
+    
       if (fileIssues && fileIssues.length > 0) {
         fileIssues.forEach(issue => {
-          // Add additional metadata to the issue
+          
           issues.push({
             id: issue.id,
             title: issue.title,
@@ -126,7 +126,7 @@ export default async function handler(req, res) {
         });
       }
       
-      // Check for extremely long files (potential code smell)
+      
       if (fileContent.length > 5000) {
         issues.push({
           id: `size-${path.replace(/[^a-z0-9]/gi, '-')}`,
@@ -144,21 +144,21 @@ export default async function handler(req, res) {
       }
     }
     
-    // Run metrics analysis on the issues found
+    
     const metrics = analysisEngine.calculateMetrics(
       Object.values(fileChunks).flat().map(chunk => chunk.content).join('\n'),
       issues
     );
     
-    // Calculate file scores
+    
     const fileScores = Object.entries(fileCounts).map(([file, data]) => {
-      // Base score of 100, reduced by issues
+      
       let score = 100;
       
-      // Get file-specific issues
+     
       const fileIssues = issues.filter(issue => issue.location === file);
       
-      // Reduce score based on severity
+    
       fileIssues.forEach(issue => {
         if (issue.severity === 'critical') score -= 15;
         else if (issue.severity === 'high') score -= 10;
@@ -166,7 +166,7 @@ export default async function handler(req, res) {
         else score -= 2;
       });
       
-      // Ensure score doesn't go below 0
+    
       score = Math.max(0, score);
       
       return {
@@ -176,7 +176,7 @@ export default async function handler(req, res) {
       };
     });
     
-    // Get issue categories and calculate category scores
+    
     const categoryMap = {};
     issues.forEach(issue => {
       if (!categoryMap[issue.category]) {
@@ -186,10 +186,10 @@ export default async function handler(req, res) {
     });
     
     const categories = Object.entries(categoryMap).map(([name, categoryIssues]) => {
-      // Base score of 100, reduced by issues
+      
       let score = 100;
       
-      // Reduce score based on severity
+      
       categoryIssues.forEach(issue => {
         if (issue.severity === 'critical') score -= 12;
         else if (issue.severity === 'high') score -= 8;
@@ -197,7 +197,7 @@ export default async function handler(req, res) {
         else score -= 2;
       });
       
-      // Ensure score doesn't go below 0 or above 100
+      
       score = Math.max(0, Math.min(100, score));
       
       return {
@@ -207,40 +207,40 @@ export default async function handler(req, res) {
       };
     });
     
-    // Calculate overall score
+  
     const overallScore = Math.round(
       categories.reduce((sum, category) => sum + category.score, 0) / categories.length
     );
     
-    // Estimate test coverage based on presence of test files
-    let testCoverage = 65; // Default medium coverage
+  
+    let testCoverage = 65; 
     if (codebaseType.hasTests) {
-      testCoverage = 85; // Higher if tests are found
+      testCoverage = 85; 
     } else {
-      testCoverage = 10; // Very low if no test files found
+      testCoverage = 10;
     }
     
-    // Generate complexity metrics
+  
     const complexity = {
       high: fileScores.filter(f => f.score < 70).length,
       medium: fileScores.filter(f => f.score >= 70 && f.score < 85).length,
       low: fileScores.filter(f => f.score >= 85).length
     };
     
-    // Sort issues by severity (high to low)
+    
     const sortedIssues = [...issues].sort((a, b) => {
       const severityOrder = { 'critical': 4, 'high': 3, 'medium': 2, 'low': 1 };
       return severityOrder[b.severity] - severityOrder[a.severity];
     });
     
-    // Generate suggested fixes for some common issues
+  
     sortedIssues.forEach(issue => {
       if (issue.fixable && issue.rule) {
         issue.fixCode = generateFixForIssue(issue, issue.codeSnippet);
       }
     });
     
-    // Build response object
+ 
     const response = {
       summary: {
         score: overallScore,
@@ -248,8 +248,8 @@ export default async function handler(req, res) {
         fileCount: Object.keys(fileChunks).length,
         complexity,
         testCoverage,
-        codebaseType, // Include detected codebase information
-        metrics: metrics // Include calculated metrics
+        codebaseType,
+        metrics: metrics 
       },
       categories,
       issues: sortedIssues,
@@ -268,11 +268,10 @@ export default async function handler(req, res) {
 }
 
 /**
- * Extract a code snippet around a specific line
- * @param {string} code - Full file content
- * @param {number} lineNumber - Line number to center snippet around
- * @param {number} context - Number of lines of context to include (before and after)
- * @returns {string} - Code snippet
+ * @param {string} code 
+ * @param {number} lineNumber 
+ * @param {number} context 
+ * @returns {string} 
  */
 function extractCodeSnippet(code, lineNumber, context = 3) {
   if (!code || !lineNumber) return '';
@@ -287,15 +286,14 @@ function extractCodeSnippet(code, lineNumber, context = 3) {
 }
 
 /**
- * Generate a fix for a common code issue
- * @param {Object} issue - Issue to generate a fix for
- * @param {string} codeSnippet - Code snippet containing the issue
- * @returns {string|null} - Fixed code or null if no fix can be generated
+ * @param {Object} issue 
+ * @param {string} codeSnippet 
+ * @returns {string|null} 
  */
 function generateFixForIssue(issue, codeSnippet) {
   if (!issue || !codeSnippet) return null;
   
-  // Try to generate a fix based on the rule ID
+  
   switch (issue.rule) {
     case 'react-no-index-key':
       return fixIndexAsKey(codeSnippet);
@@ -339,25 +337,23 @@ function generateFixForIssue(issue, codeSnippet) {
 }
 
 /**
- * Fix using index as key in React
- * @param {string} code - Code snippet
- * @returns {string} - Fixed code
+ * @param {string} code 
+ * @returns {string} 
  */
 function fixIndexAsKey(code) {
-  // Replace index keys with suggested unique id approach
+
   return code.replace(
     /\.map\(\s*\(([^,]+),\s*(i|idx|index|key|k)\s*\)[^=]*=>\s*([^<]*<[^>]*)\s+key=\s*{\s*(i|idx|index|key|k)\s*}/g,
     (match, item, index, start) => {
-      // Suggest using an ID from the item if available
+      
       return `.map((${item}, ${index}) => ${start} key={${item}.id || \`item-\${${item}.name}-\${${index}}\`}`;
     }
   );
 }
 
 /**
- * Fix async function directly in useEffect
- * @param {string} code - Code snippet
- * @returns {string} - Fixed code
+ * @param {string} code 
+ * @returns {string} 
  */
 function fixAsyncEffect(code) {
   return code.replace(
@@ -370,19 +366,18 @@ function fixAsyncEffect(code) {
 }
 
 /**
- * Fix missing dependency array in useEffect
- * @param {string} code - Code snippet
- * @returns {string} - Fixed code
+ * @param {string} code 
+ * @returns {string} 
  */
 function fixEffectDependencies(code) {
-  // Extract variables from the effect body
+  
   const effectBody = code.match(/useEffect\s*\(\s*\(\s*\)\s*=>\s*{([^}]*)}\s*\);/)?.[1] || '';
   
-  // Try to find variables that should be dependencies
+  
   const varRegex = /\b([a-zA-Z_$][a-zA-Z0-9_$]*)\b/g;
   const allVars = [...effectBody.matchAll(varRegex)].map(match => match[1]);
   
-  // Filter out common keywords and local variables
+  
   const keywords = ['if', 'else', 'for', 'while', 'switch', 'case', 'break', 'return', 'function', 
                     'try', 'catch', 'finally', 'const', 'let', 'var', 'new', 'this', 'true', 'false', 'null', 'undefined'];
   
@@ -395,9 +390,8 @@ function fixEffectDependencies(code) {
 }
 
 /**
- * Fix direct state mutation
- * @param {string} code - Code snippet
- * @returns {string} - Fixed code
+ * @param {string} code 
+ * @returns {string} 
  */
 function fixDirectStateMutation(code) {
   return code.replace(
@@ -423,9 +417,8 @@ function fixDirectStateMutation(code) {
 }
 
 /**
- * Fix state update function
- * @param {string} code - Code snippet
- * @returns {string} - Fixed code
+ * @param {string} code
+ * @returns {string} 
  */
 function fixStateUpdateFunction(code) {
   return code.replace(
@@ -437,9 +430,8 @@ function fixStateUpdateFunction(code) {
 }
 
 /**
- * Fix direct todo mutation
- * @param {string} code - Code snippet
- * @returns {string} - Fixed code
+ * @param {string} code 
+ * @returns {string} 
  */
 function fixTodoDirectMutation(code) {
   if (code.includes('todos.push')) {
@@ -470,9 +462,8 @@ function fixTodoDirectMutation(code) {
 }
 
 /**
- * Fix missing keys in todo list
- * @param {string} code - Code snippet
- * @returns {string} - Fixed code
+ * @param {string} code 
+ * @returns {string} 
  */
 function fixTodoMissingKeys(code) {
   return code.replace(
@@ -482,9 +473,8 @@ function fixTodoMissingKeys(code) {
 }
 
 /**
- * Fix using index as key in todo list
- * @param {string} code - Code snippet
- * @returns {string} - Fixed code
+ * @param {string} code 
+ * @returns {string} 
  */
 function fixTodoIndexKey(code) {
   return code.replace(
@@ -494,9 +484,8 @@ function fixTodoIndexKey(code) {
 }
 
 /**
- * Fix todo toggle bug
- * @param {string} code - Code snippet
- * @returns {string} - Fixed code
+ * @param {string} code
+ * @returns {string} 
  */
 function fixTodoToggleBug(code) {
   if (!code.includes('return')) {

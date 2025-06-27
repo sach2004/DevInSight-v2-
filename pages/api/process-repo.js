@@ -18,14 +18,14 @@ export default async function handler(req, res) {
   console.log(`Starting repository processing for: ${url}`);
   
   try {
-    // Step 1: Parse and validate GitHub URL
+    
     console.log('Step 1: Parsing GitHub URL...');
     const { owner, repo } = parseGitHubUrl(url);
     const repoId = getRepositoryId(owner, repo);
     
     console.log(`Repository: ${owner}/${repo}`);
     
-    // Step 2: Get repository information
+    
     console.log('Step 2: Fetching repository information...');
     const repoInfo = await getRepositoryInfo(owner, repo);
     
@@ -38,7 +38,7 @@ export default async function handler(req, res) {
     
     console.log(`Repository info retrieved: ${repoInfo.name} (${repoInfo.language})`);
     
-    // Step 3: Test Hugging Face API connection before proceeding
+    
     console.log('Step 3: Testing Hugging Face API connection...');
     
     if (!process.env.HUGGINGFACE_API_KEY) {
@@ -58,7 +58,7 @@ export default async function handler(req, res) {
     
     console.log('✓ Hugging Face API connection successful');
     
-    // Step 4: Clean up any existing data for this repository
+    
     console.log('Step 4: Cleaning up existing repository data...');
     try {
       await deleteRepositoryData(repoId);
@@ -67,7 +67,7 @@ export default async function handler(req, res) {
       console.log('No existing data to clean up or cleanup failed:', cleanupError.message);
     }
     
-    // Step 5: Get all files from the repository
+  
     console.log('Step 5: Fetching repository files...');
     const files = await getAllFiles(owner, repo);
     
@@ -81,12 +81,12 @@ export default async function handler(req, res) {
     
     console.log(`Found ${files.length} supported files`);
     
-    // Step 6: Process files and create chunks
+    
     console.log('Step 6: Processing files and creating code chunks...');
     const chunks = [];
     let processedFiles = 0;
     
-    // Limit the number of files to process to avoid overwhelming the API
+    
     const MAX_FILES = 50;
     const filesToProcess = files.slice(0, MAX_FILES);
     
@@ -98,7 +98,7 @@ export default async function handler(req, res) {
       try {
         console.log(`Processing file: ${file.path}`);
         
-        // Get file content
+        
         const content = await getFileContent(file.downloadUrl);
         
         if (!content || content.trim().length === 0) {
@@ -106,13 +106,13 @@ export default async function handler(req, res) {
           continue;
         }
         
-        // Skip very large files to avoid memory issues
-        if (content.length > 100000) { // 100KB limit
+     
+        if (content.length > 100000) { 
           console.log(`Skipping large file (${content.length} chars): ${file.path}`);
           continue;
         }
         
-        // Create chunks from the file
+       
         const fileChunks = chunkCodeFile(content, file.path);
         
         if (fileChunks && fileChunks.length > 0) {
@@ -121,12 +121,12 @@ export default async function handler(req, res) {
           console.log(`✓ Created ${fileChunks.length} chunks from ${file.path}`);
         }
         
-        // Add a small delay to avoid overwhelming GitHub's API
+        
         await new Promise(resolve => setTimeout(resolve, 100));
         
       } catch (fileError) {
         console.error(`Error processing file ${file.path}:`, fileError.message);
-        // Continue processing other files instead of failing completely
+        
         continue;
       }
     }
@@ -143,7 +143,7 @@ export default async function handler(req, res) {
     
     console.log(`Created ${chunks.length} total chunks from ${processedFiles} files`);
     
-    // Step 7: Generate embeddings for chunks
+   
     console.log('Step 7: Generating embeddings for code chunks...');
     console.log('This may take several minutes depending on the repository size...');
     
@@ -170,7 +170,7 @@ export default async function handler(req, res) {
       });
     }
     
-    // Step 8: Store embeddings in vector database
+    
     console.log('Step 8: Storing embeddings in vector database...');
     try {
       await addChunksToVectorStore(repoId, embeddedChunks);
@@ -188,7 +188,7 @@ export default async function handler(req, res) {
       });
     }
     
-    // Step 9: Success response
+  
     console.log('🎉 Repository processing completed successfully!');
     
     const successResponse = {
@@ -215,13 +215,13 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('Repository processing failed:', error);
     
-    // Determine error type and provide appropriate response
+    
     let errorResponse = {
       error: 'Repository processing failed',
       message: error.message
     };
     
-    // Add specific error handling for different types of errors
+    
     if (error.message.includes('Not a valid GitHub URL')) {
       errorResponse.error = 'Invalid GitHub URL';
       errorResponse.suggestion = 'Please provide a valid GitHub repository URL (e.g., https://github.com/owner/repo)';
@@ -246,13 +246,13 @@ export default async function handler(req, res) {
       return res.status(429).json(errorResponse);
     }
     
-    // Generic server error
+   
     errorResponse.suggestion = 'Please try again. If the problem persists, check the server logs for more details.';
     return res.status(500).json(errorResponse);
   }
 }
 
-// Helper function to validate environment variables
+
 function validateEnvironment() {
   const required = ['HUGGINGFACE_API_KEY', 'GITHUB_TOKEN'];
   const missing = required.filter(key => !process.env[key]);
@@ -262,5 +262,4 @@ function validateEnvironment() {
   }
 }
 
-// Export for testing
 export { validateEnvironment };

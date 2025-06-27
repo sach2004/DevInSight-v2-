@@ -16,7 +16,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState('chat');
   const [chatPrompt, setChatPrompt] = useState('');
   
-  // State for caching tab content
+  
   const [fileStructureLoaded, setFileStructureLoaded] = useState(false);
   const [fileStructureData, setFileStructureData] = useState(null);
   const [documentationLoaded, setDocumentationLoaded] = useState(false);
@@ -28,7 +28,7 @@ export default function Home() {
   const [apiExplorerLoaded, setApiExplorerLoaded] = useState(false);
   const [apiExplorerData, setApiExplorerData] = useState(null);
   
-  // Keep references to components for state persistence
+  
   const chatRef = useRef(null);
   const fileStructureRef = useRef(null);
   const documentationRef = useRef(null);
@@ -36,47 +36,47 @@ export default function Home() {
   const codeHealthRef = useRef(null);
   const apiExplorerRef = useRef(null);
   
-  // Handle tab switching
+ 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
   };
   
-  // When file structure is loaded
+  
   const handleFileStructureLoaded = (data) => {
     setFileStructureLoaded(true);
     setFileStructureData(data);
   };
   
-  // When documentation is loaded
+ 
   const handleDocumentationLoaded = (data) => {
     setDocumentationLoaded(true);
     setDocumentationData(data);
   };
   
-  // When dependency map is loaded
+ 
   const handleDependencyMapLoaded = (data) => {
     setDependencyMapLoaded(true);
     setDependencyMapData(data);
   };
   
-  // When code health is loaded
+  
   const handleCodeHealthLoaded = (data) => {
     setCodeHealthLoaded(true);
     setCodeHealthData(data);
   };
   
-  // When API explorer is loaded
+  
   const handleApiExplorerLoaded = (data) => {
     setApiExplorerLoaded(true);
     setApiExplorerData(data);
   };
   
-  // Handle chat request from other components
+
   const handleChatRequest = (prompt) => {
-    // Set the prompt to be used in the chat interface
+   
     setChatPrompt(prompt);
     
-    // Switch to the chat tab
+    
     setActiveTab('chat');
   };
   
@@ -99,7 +99,7 @@ export default function Home() {
         throw new Error(data.message || data.error || 'Failed to process repository');
       }
       
-      // Reset state for new repository
+     
       setFileStructureLoaded(false);
       setDocumentationLoaded(false);
       setDependencyMapLoaded(false);
@@ -248,7 +248,7 @@ export default function Home() {
             <div>
               {activeTab === 'chat' && (
                 <div style={{ display: activeTab === 'chat' ? 'block' : 'none' }}>
-                  {/* Pass the prompt to the chat interface */}
+                
                   <ChatInterface 
                     repositoryInfo={repository}
                     initialPrompt={chatPrompt}
