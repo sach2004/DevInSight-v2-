@@ -16,6 +16,10 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState('chat');
   const [chatPrompt, setChatPrompt] = useState('');
   
+ useEffect(() => {
+  alert("Notice: This application uses free API services with usage limits. Large codebases may experience processing restrictions or timeouts. Please consider using smaller repositories for optimal performance.");
+}, [])
+  
   
   const [fileStructureLoaded, setFileStructureLoaded] = useState(false);
   const [fileStructureData, setFileStructureData] = useState(null);

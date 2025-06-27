@@ -1,3 +1,5 @@
+
+
 import { getAllFiles, getFileContent } from '../../lib/github';
 import { querySimilarChunks, getCollection } from '../../lib/chromadb';
 import { generateEmbedding } from '../../lib/embeddings';
@@ -16,9 +18,9 @@ export default async function handler(req, res) {
   try {
     const [owner, repo] = repoId.split('/');
     
-    
+    let collection;
     try {
-      const collection = await getCollection(repoId);
+      collection = await getCollection(repoId);
       if (!collection.data || collection.data.length === 0) {
         return res.status(200).json({
           apiRoot: "/api",
@@ -34,9 +36,7 @@ export default async function handler(req, res) {
       });
     }
     
-    
     const apiQuery = await generateEmbedding("API endpoint route handler request response");
-    
     
     const apiChunks = await querySimilarChunks(repoId, apiQuery, 50);
     
@@ -48,13 +48,23 @@ export default async function handler(req, res) {
       });
     }
     
-  
+    console.log(`Found ${apiChunks.length} API-related chunks`);
+    
+    const endpoints = [];
+    
     const apiFileChunks = apiChunks.filter(chunk => 
       chunk.metadata && 
       chunk.metadata.path && 
-      (chunk.metadata.path.includes('/api/') || chunk.metadata.path.includes('controller') || chunk.metadata.path.includes('routes'))
+      (chunk.metadata.path.includes('/api/') || 
+       chunk.metadata.path.includes('controller') || 
+       chunk.metadata.path.includes('routes') ||
+       chunk.content.includes('export default') ||
+       chunk.content.includes('req.method') ||
+       chunk.content.includes('res.status') ||
+       chunk.content.includes('res.json'))
     );
     
+    console.log(`Found ${apiFileChunks.length} filtered API chunks`);
     
     const fileChunks = {};
     apiFileChunks.forEach(chunk => {
@@ -68,60 +78,115 @@ export default async function handler(req, res) {
       fileChunks[path].push(chunk);
     });
     
+    console.log(`Processing ${Object.keys(fileChunks).length} files`);
     
-    const endpoints = [];
     const processedPaths = new Set();
     
-    
     for (const [path, chunks] of Object.entries(fileChunks)) {
-      
       if (processedPaths.has(path)) continue;
       processedPaths.add(path);
       
-      
       const fileContent = chunks.map(chunk => chunk.content).join('\n\n');
-      
       
       const endpoint = extractEndpointInfo(path, fileContent);
       
       if (endpoint) {
         endpoints.push(endpoint);
+        console.log(`Created endpoint for ${path}: ${endpoint.method} ${endpoint.path}`);
       }
     }
     
-   
     if (endpoints.length === 0) {
-    
-      const allFilePaths = Object.keys(collection.data.reduce((acc, item) => {
-        if (item.metadata && item.metadata.path) {
-          acc[item.metadata.path] = true;
+      console.log('No endpoints found, creating sample endpoints...');
+      
+      try {
+        const files = await getAllFiles(owner, repo);
+        const potentialApiFiles = files.filter(file => 
+          file.path.includes('/api/') || 
+          file.path.includes('controller') || 
+          file.path.includes('routes') ||
+          file.path.includes('handlers')
+        );
+        
+        console.log(`Found ${potentialApiFiles.length} potential API files`);
+        
+        if (potentialApiFiles.length === 0) {
+          endpoints.push(
+            {
+              id: 'sample-get',
+              path: '/api/example',
+              method: 'GET',
+              description: 'Sample GET endpoint',
+              requestParams: [
+                { name: 'id', type: 'string', required: true, description: 'Resource identifier' }
+              ],
+              responseFields: [
+                { name: 'data', type: 'object', description: 'Response data' },
+                { name: 'success', type: 'boolean', description: 'Request success status' }
+              ],
+              exampleRequest: { id: 'example-123' },
+              exampleResponse: { data: { message: 'Hello World' }, success: true },
+              sourcePath: 'Generated example',
+              relatedFiles: []
+            },
+            {
+              id: 'sample-post',
+              path: '/api/data',
+              method: 'POST',
+              description: 'Sample POST endpoint',
+              requestParams: [
+                { name: 'name', type: 'string', required: true, description: 'Item name' },
+                { name: 'value', type: 'string', required: false, description: 'Item value' }
+              ],
+              responseFields: [
+                { name: 'id', type: 'string', description: 'Created item ID' },
+                { name: 'success', type: 'boolean', description: 'Creation success status' }
+              ],
+              exampleRequest: { name: 'example', value: 'test' },
+              exampleResponse: { id: 'new-123', success: true },
+              sourcePath: 'Generated example',
+              relatedFiles: []
+            }
+          );
+        } else {
+          for (const file of potentialApiFiles.slice(0, 5)) {
+            const endpoint = createSampleEndpoint(file.path);
+            if (endpoint) {
+              endpoints.push(endpoint);
+            }
+          }
         }
-        return acc;
-      }, {}));
-      
-      const potentialApiFiles = allFilePaths.filter(path => 
-        path.includes('/api/') || 
-        path.includes('controller') || 
-        path.includes('routes') ||
-        path.includes('handlers')
-      );
-      
-      
-      for (const path of potentialApiFiles.slice(0, 3)) {
-        const endpoint = createSampleEndpoint(path);
-        if (endpoint) {
-          endpoints.push(endpoint);
-        }
+      } catch (error) {
+        console.error('Error getting repository files:', error);
+        
+        endpoints.push({
+          id: 'fallback',
+          path: '/api/unknown',
+          method: 'POST',
+          description: 'API endpoint detected but analysis failed',
+          requestParams: [{ name: 'data', type: 'object', required: true, description: 'Request data' }],
+          responseFields: [{ name: 'result', type: 'object', description: 'Response result' }],
+          exampleRequest: { data: 'example' },
+          exampleResponse: { result: 'success' },
+          sourcePath: 'Unknown',
+          relatedFiles: []
+        });
       }
     }
     
-    
+    console.log(`Final endpoint count: ${endpoints.length}`);
     endpoints.sort((a, b) => a.path.localeCompare(b.path));
     
     return res.status(200).json({
       apiRoot: "/api",
       endpoints,
-      success: true
+      success: true,
+      debug: {
+        totalChunks: apiChunks.length,
+        filteredChunks: apiFileChunks ? apiFileChunks.length : 0,
+        processedFiles: Object.keys(fileChunks || {}).length,
+        endpointCount: endpoints.length
+      }
     });
   } catch (error) {
     console.error('Error analyzing API endpoints:', error);
@@ -133,22 +198,13 @@ export default async function handler(req, res) {
   }
 }
 
-/**
-
- * @param {string} path 
- * @param {string} content 
- * @returns {Object|null} 
- */
 function extractEndpointInfo(path, content) {
   try {
-   
     const pathParts = path.split('/');
     const fileName = pathParts[pathParts.length - 1].replace(/\.\w+$/, '');
     const endpointId = fileName;
     
-    
     let method = 'POST';
-    
     
     if (content.includes('req.method === \'GET\'') || content.includes('method: \'GET\'')) {
       method = 'GET';
@@ -158,16 +214,13 @@ function extractEndpointInfo(path, content) {
       method = 'DELETE';
     }
     
-    
     let apiPath = `/api/${fileName}`;
-    
     
     if (path.includes('pages/api/')) {
       const apiPathSegments = path.split('pages/api/')[1].split('.');
-      apiPathSegments.pop(); 
+      apiPathSegments.pop();
       apiPath = `/api/${apiPathSegments.join('.')}`;
     }
-    
     
     let description = '';
     const descriptionMatch = content.match(/\/\*\*[\s\S]*?\*\//) || content.match(/\/\/.*API.*endpoint/);
@@ -180,13 +233,10 @@ function extractEndpointInfo(path, content) {
         .join(' ')
         .replace(/\s+/g, ' ');
     } else {
-     
       description = `${method} endpoint for ${fileName.replace(/-/g, ' ')} operations`;
     }
     
-    
     const requestParams = [];
-    
     
     const destructuringMatch = content.match(/const\s*{([^}]+)}\s*=\s*req\.body/);
     if (destructuringMatch) {
@@ -208,7 +258,6 @@ function extractEndpointInfo(path, content) {
       });
     }
     
-  
     const directBodyAccess = content.match(/req\.body\.(\w+)/g);
     if (directBodyAccess) {
       const paramNames = directBodyAccess.map(match => match.replace('req.body.', ''));
@@ -228,7 +277,6 @@ function extractEndpointInfo(path, content) {
         }
       });
     }
-    
     
     if (method === 'GET') {
       const queryParams = content.match(/req\.query\.(\w+)/g);
@@ -252,9 +300,7 @@ function extractEndpointInfo(path, content) {
       }
     }
     
-    
     const responseFields = [];
-    
     
     const jsonResponseMatch = content.match(/res(?:ponse)?\.(?:status\(\d+\)\.)?json\(\s*({[^}]+})/);
     if (jsonResponseMatch) {
@@ -275,9 +321,7 @@ function extractEndpointInfo(path, content) {
       });
     }
     
-    
     if (responseFields.length === 0) {
-      
       const returnMatch = content.match(/return\s*({[^}]+})/);
       if (returnMatch) {
         const responseObj = returnMatch[1];
@@ -297,7 +341,6 @@ function extractEndpointInfo(path, content) {
         });
       }
     }
-    
     
     const exampleRequest = {};
     requestParams.forEach(param => {
@@ -322,7 +365,6 @@ function extractEndpointInfo(path, content) {
       }
     });
     
-    
     const exampleResponse = {};
     responseFields.forEach(field => {
       switch (field.type) {
@@ -346,7 +388,6 @@ function extractEndpointInfo(path, content) {
       }
     });
     
-   
     if (Object.keys(exampleResponse).length === 0) {
       exampleResponse.success = true;
       responseFields.push({
@@ -356,7 +397,6 @@ function extractEndpointInfo(path, content) {
       });
     }
     
-    
     const relatedFiles = [];
     const importMatches = content.match(/(?:import|require)\s+.*?(?:from\s+)?['"]([^'"]+)['"]/g);
     if (importMatches) {
@@ -364,8 +404,7 @@ function extractEndpointInfo(path, content) {
         const match = importStatement.match(/['"]([^'"]+)['"]/);
         if (match) {
           const importPath = match[1];
-          if (!importPath.startsWith('.')) return; 
-          
+          if (!importPath.startsWith('.')) return;
           
           let absolutePath = importPath;
           if (importPath.startsWith('./')) {
@@ -376,7 +415,6 @@ function extractEndpointInfo(path, content) {
             const parentDir = dir.substring(0, dir.lastIndexOf('/'));
             absolutePath = `${parentDir}/${importPath.substring(3)}`;
           }
-          
           
           if (!absolutePath.includes('.')) {
             const extensions = ['.js', '.ts', '.jsx', '.tsx'];
@@ -389,7 +427,6 @@ function extractEndpointInfo(path, content) {
         }
       });
     }
-    
     
     return {
       id: endpointId,
@@ -414,7 +451,7 @@ function extractEndpointInfo(path, content) {
       exampleRequest: Object.keys(exampleRequest).length > 0 ? exampleRequest : { id: 'example-id' },
       exampleResponse: exampleResponse,
       sourcePath: path,
-      relatedFiles: [...new Set(relatedFiles)] 
+      relatedFiles: [...new Set(relatedFiles)]
     };
   } catch (error) {
     console.error(`Error extracting endpoint info from ${path}:`, error);
@@ -422,24 +459,17 @@ function extractEndpointInfo(path, content) {
   }
 }
 
-/**
-
- * @param {string} path 
- * @returns {Object} 
- */
 function createSampleEndpoint(path) {
   const pathParts = path.split('/');
   const fileName = pathParts[pathParts.length - 1].replace(/\.\w+$/, '');
   const endpointId = fileName;
   
-  
   let apiPath = `/api/${fileName}`;
   if (path.includes('pages/api/')) {
     const apiPathSegments = path.split('pages/api/')[1].split('.');
-    apiPathSegments.pop(); 
+    apiPathSegments.pop();
     apiPath = `/api/${apiPathSegments.join('.')}`;
   }
-  
   
   let method = 'POST';
   if (fileName.startsWith('get') || fileName.includes('list') || fileName.includes('search')) {
@@ -449,7 +479,6 @@ function createSampleEndpoint(path) {
   } else if (fileName.startsWith('delete') || fileName.includes('remove')) {
     method = 'DELETE';
   }
-  
   
   const readableName = fileName
     .replace(/([A-Z])/g, ' $1')
@@ -483,14 +512,7 @@ function createSampleEndpoint(path) {
   };
 }
 
-/**
- 
- * @param {string} paramName 
- * @param {string} content
- * @returns {string} 
- */
 function guessTypeFromUsage(paramName, content) {
-  
   if (paramName.includes('id') || paramName.includes('Id')) return 'string';
   if (paramName.includes('name') || paramName.includes('Name')) return 'string';
   if (paramName.includes('email') || paramName.includes('Email')) return 'string';
@@ -500,25 +522,17 @@ function guessTypeFromUsage(paramName, content) {
   if (paramName.includes('list') || paramName.includes('List') || paramName.includes('array') || paramName.includes('Array')) return 'array';
   if (paramName.includes('options') || paramName.includes('Options') || paramName.includes('config') || paramName.includes('Config')) return 'object';
   
- 
   const typeofCheck = content.match(new RegExp(`typeof\\s+${paramName}\\s*===?\\s*["']([\\w]+)["']`));
   if (typeofCheck) return typeofCheck[1];
-  
   
   if (content.includes(`${paramName}.map`) || content.includes(`${paramName}.forEach`) || content.includes(`${paramName}.filter`)) return 'array';
   if (content.includes(`${paramName}.length`)) return content.includes(`${paramName}[`) ? 'array' : 'string';
   if (content.includes(`${paramName}.toUpperCase`) || content.includes(`${paramName}.toLowerCase`)) return 'string';
   if (content.includes(`${paramName}.toFixed`) || content.includes(`${paramName} + 1`)) return 'number';
   
-
   return 'string';
 }
 
-/**
- 
- * @param {string} value 
- * @returns {string}
- */
 function guessTypeFromValue(value) {
   if (!value) return 'string';
   
@@ -535,15 +549,12 @@ function guessTypeFromValue(value) {
   if (value.includes('map')) return 'array';
   if (value.includes('filter')) return 'array';
   
-  
   if (value.match(/^[a-zA-Z_$][a-zA-Z0-9_$]*$/)) {
-   
     if (value.includes('count') || value.includes('Count') || value.includes('total') || value.includes('Total')) return 'number';
     if (value.includes('is') || value.includes('has')) return 'boolean';
     if (value.includes('list') || value.includes('List') || value.includes('array') || value.includes('Array')) return 'array';
     if (value.includes('obj') || value.includes('Obj') || value.includes('options') || value.includes('Options')) return 'object';
   }
-  
   
   return 'string';
 }
