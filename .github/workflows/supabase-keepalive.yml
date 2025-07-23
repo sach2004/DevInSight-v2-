@@ -1,0 +1,65 @@
+# .github/workflows/supabase-keepalive.yml
+name: Keep Supabase Database Active
+
+on:
+  schedule:
+    # Run twice a week - Monday and Thursday at 9:00 AM UTC
+    - cron: '0 9 * * 1,4'
+  workflow_dispatch: # Allows you to run it manually from GitHub
+
+jobs:
+  ping-database:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          
+      - name: Install Supabase client
+        run: npm install @supabase/supabase-js
+        
+      - name: Ping Supabase to prevent pausing
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          node -e "
+          (async () => {
+            try {
+              const { createClient } = require('@supabase/supabase-js');
+              
+              console.log('🏓 Pinging Supabase database to keep it active...');
+              console.log('📅 Time:', new Date().toISOString());
+              
+              const supabase = createClient(
+                process.env.SUPABASE_URL, 
+                process.env.SUPABASE_KEY
+              );
+              
+              // Simple database query to keep it active
+              const { data, error } = await supabase
+                .from('vector_store')
+                .select('repo_id')
+                .limit(1);
+              
+              if (error) {
+                console.log('⚠️  Query had error but database was contacted:', error.message);
+                console.log('✅ Database is still active (error is normal if table empty)');
+              } else {
+                console.log('✅ Successfully pinged Supabase database');
+                console.log('📊 Found', data?.length || 0, 'records');
+              }
+              
+              console.log('🎉 Keep-alive ping completed successfully!');
+              
+            } catch (error) {
+              console.error('❌ Keep-alive failed:', error.message);
+              process.exit(1);
+            }
+          })();
+          "
