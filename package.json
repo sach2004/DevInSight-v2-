@@ -10,7 +10,7 @@
     "postinstall": "node scripts/init-tree-sitter.js"
   },
   "dependencies": {
-    "@huggingface/inference": "^2.8.0",
+    "@huggingface/inference": "^4.13.2",
     "@supabase/supabase-js": "^2.50.2",
     "chromadb": "^1.7.1",
     "dotenv": "^16.6.0",
